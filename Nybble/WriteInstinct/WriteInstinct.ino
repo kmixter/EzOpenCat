@@ -200,7 +200,7 @@ void setup() {
   Fastwire::setup(400, true);
 #endif
 
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.setTimeout(5);
   delay(1);
   while (!Serial);//check here
@@ -242,8 +242,7 @@ void setup() {
 
   // start message
   PTLF("\ncalibrate MPU? (Y/n)");
-  while (!Serial.available());
-  choice = Serial.read();
+  while (!Serial.available() || ((choice = Serial.read()) != 'Y' && choice != 'n'));
   //PTLF("Gotcha!");
   if (choice == 'Y') {
     PTLF("\n* MPU6050 Calibration Routine");
@@ -350,6 +349,7 @@ void loop() {
       int target[2] = {};
       String inBuffer = Serial.readStringUntil('\n');
       byte inLen = 0;
+      PTLF("Got full command");
       strcpy(cmd, inBuffer.c_str());
       char *pch;
       pch = strtok (cmd, " ,");
@@ -361,7 +361,7 @@ void loop() {
       }
 
       if (token == 'c') {
-        //PTLF("calibrating [ targetIdx, angle ]: ");
+        PTLF("calibrating [ targetIdx, angle ]: ");
         if (strcmp(lastCmd, "c")) { //first time entering the calibration function
           motion.loadBySkillName("calib");
           transform(motion.dutyAngles);

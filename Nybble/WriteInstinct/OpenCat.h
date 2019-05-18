@@ -679,6 +679,7 @@ void behavior(int n, char** skill, float *speedRatio, int *pause) {
 }
 
 void beep(byte note, float duration = 10, int pause = 0, byte repeat = 1 ) {
+#if 0
   if (note == 0) {//rest note
     analogWrite(BUZZER, 0);
     delay(duration);
@@ -696,15 +697,19 @@ void beep(byte note, float duration = 10, int pause = 0, byte repeat = 1 ) {
     }
     delay(pause);
   }
+#endif
 }
 
 void playMelody(int start) {
+#if 0
   byte len = (byte)EEPROM.read(start) / 2;
   for (int i = 0; i < len; i++)
     beep(EEPROM.read(start - 1 - i), 1000 / EEPROM.read(start - 1 - len - i), 100);
+#endif
 }
 
 void meow(int repeat = 1, int pause = 200, int startF = 50,  int endF = 200, int increment = 5) {
+#if 0
   for (int r = 0; r < repeat; r++) {
     for (int amp = startF; amp <= endF; amp += increment) {
       analogWrite(BUZZER, amp);
@@ -714,6 +719,7 @@ void meow(int repeat = 1, int pause = 200, int startF = 50,  int endF = 200, int
     analogWrite(BUZZER, 0);
     delay(pause);
   }
+#endif
 }
 //short tools
 template <typename T> int8_t sign(T val) {

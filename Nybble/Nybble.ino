@@ -70,13 +70,16 @@ VectorFloat gravity;    // [x, y, z]            gravity vector
 // ================================================================
 
 volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
+int icount;
 void dmpDataReady() {
+  if (++icount % 100 == 1)
+    Serial.println("interrupted 100 times");
   mpuInterrupt = true;
 }
 
 // https://brainy-bits.com/blogs/tutorials/ir-remote-arduino
 /*-----( Declare objects )-----*/
-//#define IR_RECIEVER A0
+#define IR_RECIEVER A0
 #ifdef IR_RECIEVER
 #include <IRremote.h>
 IRrecv irrecv(IR_RECIEVER);     // create instance of 'irrecv'
@@ -84,6 +87,7 @@ decode_results results;      // create instance of 'decode_results'
 String translateIR() // takes action based on IR code received
 // describing Remote IR codes.
 {
+  Serial.println(results.value, HEX);
   switch (results.value) { //why the program is printing the IR key twice? //Rz's note
     //IR signal    key on IR remote       //abbreviation of gaits   //gait/posture names
     case 0xFFA25D: PTLF(" CH-");          return (F("sit"));
@@ -95,22 +99,22 @@ String translateIR() // takes action based on IR code received
     case 0xFFE01F: PTLF(" -");            return (F("buttUp"));     //butt up
     case 0xFFA857: PTLF(" +");            return (F("ly"));         //lay down crawling
     case 0xFF906F: PTLF(" EQ");           return (F("pee"));        //stand on three feet
-    case 0xFF0DF2: PTLF(" 0");            return (F("trL"));        //trot left
+    case 0xFF6897: PTLF(" 0");            return (F("trL"));        //trot left
     case 0xFF9867: PTLF(" 100+");         return (F("tr"));         //trot fast/run
     case 0xFFB04F: PTLF(" 200+");         return (F("trR"));        //trot right
-    case 0xFF10EF: PTLF(" 1");            return (F("crL"));        //crawl left
-    case 0xFF11EE: PTLF(" 2");            return (F("cr"));         //crawl fast
-    case 0xFF12ED: PTLF(" 3");            return (F("crR"));        //crawl right
-    case 0xFF14EB: PTLF(" 4");            return (F("bkL"));        // back left
-    case 0xFF15EA: PTLF(" 5");            return (F("bk"));         //back
-    case 0xFF16E9: PTLF(" 6");            return (F("bkR"));        //back right
-    case 0xFF18E7: PTLF(" 7");            return (F("calib"));      //calibration posture
-    case 0xFF19E6: PTLF(" 8");            return (F("zero"));       //customed skill
-    case 0xFF1AE5: PTLF(" 9");            return (F("zero"));       //customed skill
+    case 0xFF30CF: PTLF(" 1");            return (F("crL"));        //crawl left
+    case 0xFF18E7: PTLF(" 2");            return (F("cr"));         //crawl fast
+    case 0xFF7A85: PTLF(" 3");            return (F("crR"));        //crawl right
+    case 0xFF10EF: PTLF(" 4");            return (F("bkL"));        // back left
+    case 0xFF38C7: PTLF(" 5");            return (F("bk"));         //back
+    case 0xFF5AA5: PTLF(" 6");            return (F("bkR"));        //back right
+    case 0xFF42BD: PTLF(" 7");            return (F("calib"));      //calibration posture
+    case 0xFF4AB5: PTLF(" 8");            return (F("zero"));       //customed skill
+    case 0xFF52AD: PTLF(" 9");            return (F("zero"));       //customed skill
     case 0xFFFFFFFF: return (""); //Serial.println(" REPEAT");
 
     default: {
-        Serial.println(results.value, HEX);
+        Serial.println("Unknown code");
       }
       return ("");                      //Serial.println("null");
   }// End Case
@@ -127,6 +131,7 @@ char token;
 #define CMD_LEN 10
 char *lastCmd = new char[CMD_LEN];
 char *newCmd = new char[CMD_LEN];
+
 byte newCmdIdx = 0;
 byte hold = 0;
 
@@ -232,6 +237,7 @@ void checkBodyMotion()  {
       }
       //calculate deviation
       for (byte i = 0; i < 2; i++) {
+        Serial.print(i); Serial.print("-> "); Serial.println(ypr[2-i] * degPerRad);
         RollPitchDeviation[i] = ypr[2 - i] * degPerRad - motion.expectedRollPitch[i];
         RollPitchDeviation[i] = sign(ypr[2 - i]) * max(fabs(RollPitchDeviation[i]) - levelTolerance[i], 0);//filter out small angles
       }
@@ -254,7 +260,7 @@ void setup() {
 #endif
 #endif
 
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.setTimeout(10);
   while (!Serial);
   // wait for ready
@@ -325,7 +331,7 @@ void setup() {
 #ifdef IR_RECIEVER
   //IR
   {
-    //PTLF("IR Receiver Button Decode");
+    PTLF("IR Receiver Button Decode");
     irrecv.enableIRIn(); // Start the receiver
   }
 #endif
@@ -464,10 +470,11 @@ void loop() {
     newCmdIdx = 3;
   }
 
+#if 0
   if (auto_mode) {
-    static char *movements[] = {"balance", "wkF", "wkL", "wkF", "wkR", "sleep","balance"};
+    static char *movements[] = {"balance", "wkF", "wkL", "wkF", "wkR", "sleep", "balance"};
     //static char *movements[] = {"balance", "vt","rest"};
-    static short timeouts[] {2000, 2000, 5000, 15000, 5000, 15000, 2000,2000};
+    static short timeouts[] {2000, 2000, 5000, 15000, 5000, 15000, 2000, 2000};
     static unsigned long old_time = cur_time + timeouts[0];
     static int c = 0;
 
@@ -483,10 +490,11 @@ void loop() {
       //PTL(timeouts[c]);
       //strcpy(newCmd, "balance");
       if (c == sizeof(movements) / 2)
-          auto_mode = false;
+        auto_mode = false;
       //PTL(c);
     }
   }
+#endif
 
   if (newCmdIdx) {
     //PTL(token);
