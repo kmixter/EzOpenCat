@@ -1,0 +1,26 @@
+CXXFLAGS += -std=c++11 -I googletest/include -I googletest -DTESTING \
+			-Wall -Werror
+O = out/host
+COMMON = $(O)/mpu6050.o
+TESTS = $(patsubst %.cc,$(O)/%.o,$(wildcard *_test.cc))
+
+.PHONY: directories
+
+all: directories $(O)/tests_pass
+
+directories:
+	mkdir -p $(O) $(O)/googletest/src
+
+$(O)/%.o: %.cc
+	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $< -o $@
+
+$(O)/tests_pass: $(O)/tests
+	./$(O)/tests
+	touch $(O)/tests_pass
+
+$(O)/tests: $(COMMON) $(TESTS) \
+	$(O)/googletest/src/gtest-all.o $(O)/googletest/src/gtest_main.o
+	$(CXX) -o $(O)/tests $(COMMON) $(TESTS) $(O)/googletest/src/gtest-all.o $(O)/googletest/src/gtest_main.o -pthread
+
+clean:
+	rm -rf $(O)

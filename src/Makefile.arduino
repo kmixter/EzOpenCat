@@ -1,0 +1,104 @@
+ADIR?=$(HOME)/prj/arduino-1.8.8
+ABINDIR=$(ADIR)/hardware/tools/avr/bin
+AETCDIR=$(ADIR)/hardware/tools/avr/etc
+ALIBDIR=$(ADIR)/hardware/arduino/avr/libraries
+ATLIBDIR=$(ADIR)/libraries
+PKG=mpu_reader
+O=out/arduino
+BIN=$(O)/$(PKG)
+OBJS=$(O)/mpu_reader.o $(O)/mpu6050.o
+MCU=atmega328p
+ARDUINO_DEFINE=ARDUINO_AVR_NANO
+ARDUINO_VARIANT_INCLUDE=$(ADIR)/hardware/arduino/avr/variants/eightanaloginputs
+PROGRAMMER_ID=arduino
+
+CFLAGS=-g -Wall -Werror -Os -ffunction-sections -fdata-sections \
+    -Wno-error=narrowing -flto -mmcu=$(MCU) -DF_CPU=16000000L -DARDUINO=10808 \
+    -D$(ARDUINO_DEFINE) -DARDUINO_ARCH_AVR \
+    -I$(ADIR)/hardware/arduino/avr/cores/arduino \
+    -I$(ARDUINO_VARIANT_INCLUDE) \
+    -I$(ALIBDIR)/Wire/src -I$(ATLIBDIR)/Servo/src
+
+CXXFLAGS=$(CFLAGS) -fpermissive -fno-exceptions -std=gnu++11 \
+    -fno-threadsafe-statics
+
+all: directories $(BIN).elf
+
+directories:
+	mkdir -p $(O) $(O)/Wire/src $(O)/Wire/src/utility \
+		$(O)/Servo/src/avr
+
+LDFLAGS=-Os -g -flto -fuse-linker-plugin -Wl,--gc-sections,--relax \
+    -mmcu=$(MCU) -lm
+
+CORECFILES=wiring_shift.c WInterrupts.c hooks.c wiring.c \
+	wiring_analog.c wiring_pulse.c wiring_digital.c
+
+CORECXXFILES=HardwareSerial.cpp HardwareSerial0.cpp HardwareSerial1.cpp \
+    USBCore.cpp WMath.cpp HardwareSerial2.cpp HardwareSerial3.cpp \
+    WString.cpp main.cpp Tone.cpp new.cpp CDC.cpp abi.cpp IPAddress.cpp \
+    Print.cpp Stream.cpp PluggableUSB.cpp
+
+CC=$(ABINDIR)/avr-gcc
+CXX=$(ABINDIR)/avr-g++
+AR=$(ABINDIR)/avr-gcc-ar
+OBJCOPY=$(ABINDIR)/avr-objcopy
+PORT=/dev/ttyACM0
+
+$(O)/%.o: %.cc
+	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $< -o $@
+
+$(O)/%.o: %.cpp
+	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $< -o $@
+
+$(BIN).hex: $(BIN).elf
+	$(OBJCOPY) -O ihex $< $@
+
+$(O)/core.a:
+	for file in $(CORECFILES) ; do \
+		echo "Building C $$file"; \
+		$(CC) $(CFLAGS) -c $(ADIR)/hardware/arduino/avr/cores/arduino/$$file -o $(O)/$$file.o; \
+		$(AR) rcs $(O)/core.a $(O)/$$file.o; \
+	done
+	for file in $(CORECXXFILES) ; do \
+		echo "Building CXX $$file"; \
+		$(CXX) $(CXXFLAGS) -c $(ADIR)/hardware/arduino/avr/cores/arduino/$$file -o $(O)/$$file.o; \
+		$(AR) rcs $(O)/core.a $(O)/$$file.o; \
+	done
+
+$(O)/libs.a:
+	for file in Wire/src/utility/twi.c ; do \
+		echo "Building C $$file"; \
+		$(CC) $(CFLAGS) -c $(ALIBDIR)/$$file -o $(O)/$$file.o; \
+		$(AR) rcs $(O)/libs.a $(O)/$$file.o; \
+	done
+	for file in Wire/src/Wire.cpp ; do \
+		echo "Building CXX $$file"; \
+		$(CXX) $(CXXFLAGS) -c $(ALIBDIR)/$$file -o $(O)/$$file.o; \
+		$(AR) rcs $(O)/libs.a $(O)/$$file.o; \
+	done
+	for file in Servo/src/avr/Servo.cpp ; do \
+		echo "Building CXX $$file"; \
+		$(CXX) $(CXXFLAGS) -c $(ATLIBDIR)/$$file -o $(O)/$$file.o; \
+		$(AR) rcs $(O)/libs.a $(O)/$$file.o; \
+	done
+
+$(BIN).elf: $(OBJS) $(O)/libs.a $(O)/core.a
+	$(CC) $(LDFLAGS) -o $@ $^
+	$(ABINDIR)/avr-size $@
+
+# TODO(kmixter): 115200 may be too fast for this programmer, let's check.
+install: directories $(BIN).hex
+	$(ABINDIR)/avrdude -C$(AETCDIR)/avrdude.conf -v -c$(PROGRAMMER_ID) -p$(MCU) -P$(PORT) -b115200 -D -Uflash:w:$(BIN).hex:i
+
+serial:
+	picocom -b 115200 $(PORT)
+
+run: install serial
+
+clean:
+	rm -rf $(O)
+
+
+
+
