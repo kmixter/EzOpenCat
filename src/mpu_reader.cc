@@ -5,9 +5,14 @@
 static const int kMpuI2CAddr = 0x68;
 static const float kGyroWeight = .98;
 static const float kDt = 10;
+
 int main() {
+  init();
+
   // initialize serial communication at 9600 bits per second:
-  Serial.begin(9600);
+  Serial.begin(57600);
+  Serial.println("You are here");
+
   MPU6050 mpu(kMpuI2CAddr, kDt / 1000, 1);
   mpu.Initialize();
 
@@ -21,6 +26,8 @@ int main() {
 
     mpu.ComputeFilteredPitchRoll(accel, gyro, &estimated_pitch, &estimated_roll);
     if (count % 10 == 0) {
+      Serial.print(accel[0]); Serial.print(" "); Serial.print(accel[1]); Serial.print(" "); Serial.println(accel[2]);
+
       Serial.print(estimated_pitch);
       Serial.print(" ");
       Serial.print(estimated_roll);
@@ -28,4 +35,8 @@ int main() {
     }
     delay(kDt);
   }
+}
+
+void yield() {
+  if (serialEventRun) serialEventRun();
 }

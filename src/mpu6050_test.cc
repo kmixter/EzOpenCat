@@ -34,14 +34,14 @@ TEST_F(MpuTest, ComputeFilteredPitchRollDown) {
 }
 
 TEST_F(MpuTest, ComputeFilteredPitchRollPitched) {
-	accel_[1] = accel_[2] = k1G;
+	accel_[0] = accel_[2] = k1G;
   RunSameManyTimes();
 	EXPECT_NEAR(0, roll_, kEpsilon);
 	EXPECT_NEAR(45, pitch_, kEpsilon);
 }
 
 TEST_F(MpuTest, ComputeFilteredPitchRollRolled) {
-	accel_[0] = accel_[2] = k1G;
+	accel_[1] = accel_[2] = k1G;
   RunSameManyTimes();
 	EXPECT_NEAR(45, roll_, kEpsilon);
 	EXPECT_NEAR(0, pitch_, kEpsilon);

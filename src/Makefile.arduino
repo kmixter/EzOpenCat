@@ -43,7 +43,7 @@ CC=$(ABINDIR)/avr-gcc
 CXX=$(ABINDIR)/avr-g++
 AR=$(ABINDIR)/avr-gcc-ar
 OBJCOPY=$(ABINDIR)/avr-objcopy
-PORT=/dev/ttyACM0
+PORT=/dev/ttyUSB0
 
 $(O)/%.o: %.cc
 	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $< -o $@
@@ -87,12 +87,11 @@ $(BIN).elf: $(OBJS) $(O)/libs.a $(O)/core.a
 	$(CC) $(LDFLAGS) -o $@ $^
 	$(ABINDIR)/avr-size $@
 
-# TODO(kmixter): 115200 may be too fast for this programmer, let's check.
 install: directories $(BIN).hex
-	$(ABINDIR)/avrdude -C$(AETCDIR)/avrdude.conf -v -c$(PROGRAMMER_ID) -p$(MCU) -P$(PORT) -b115200 -D -Uflash:w:$(BIN).hex:i
+	$(ABINDIR)/avrdude -C$(AETCDIR)/avrdude.conf -v -p$(MCU) -c$(PROGRAMMER_ID) -P$(PORT) -b57600 -D -Uflash:w:$(BIN).hex:i
 
 serial:
-	picocom -b 115200 $(PORT)
+	picocom -b 57600 $(PORT)
 
 run: install serial
 

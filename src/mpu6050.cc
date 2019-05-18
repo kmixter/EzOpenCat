@@ -54,13 +54,13 @@ void MPU6050::ComputeFilteredPitchRoll(const int16_t* accel, const int16_t* gyro
 	// 
 	//   2
 	//
-	//   |_   0
+	//   |_   1
 	//  /
 	//
-	// 1 (head of cat)
+	// 0 (head of cat)
 
-  *pitch += ((float)gyro[0] / kGyroscopeSensitivity) * sampling_;
-  *roll -= ((float)gyro[1] / kGyroscopeSensitivity) * sampling_;
+  *pitch += ((float)gyro[1] / kGyroscopeSensitivity) * sampling_;
+  *roll -= ((float)gyro[0] / kGyroscopeSensitivity) * sampling_;
 
   float acceleration_magnitude = abs(accel[0]) + abs(accel[1]) + abs(accel[2]);
   if (acceleration_magnitude < kAccelerometerSensitivity ||
@@ -72,13 +72,13 @@ void MPU6050::ComputeFilteredPitchRoll(const int16_t* accel, const int16_t* gyro
   //
   //   2
   //
-  //   |_   0
+  //   |_   1
   //  /
   // 
-  // 1 (head of cat)
+  // 0 (head of cat)
 
-  float acceleration_pitch = atan2f(float(accel[1]), float(accel[2])) * 180 / M_PI;
-  float acceleration_roll = atan2f(float(accel[0]), float(accel[2])) * 180 / M_PI;
+  float acceleration_pitch = atan2f(float(accel[0]), float(accel[2])) * 180 / M_PI;
+  float acceleration_roll = atan2f(float(accel[1]), float(accel[2])) * 180 / M_PI;
   *pitch = *pitch * alpha_ + acceleration_pitch * (1 - alpha_);
   *roll = *roll * alpha_ + acceleration_roll * (1 - alpha_);
 }
