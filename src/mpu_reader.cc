@@ -26,8 +26,11 @@ int main() {
 
     mpu.ComputeFilteredPitchRoll(accel, gyro, &estimated_pitch, &estimated_roll);
     if (count % 10 == 0) {
-      Serial.print(accel[0]); Serial.print(" "); Serial.print(accel[1]); Serial.print(" "); Serial.println(accel[2]);
+      Serial.println("");
+      Serial.print("accl: "); Serial.print(accel[0]); Serial.print(" "); Serial.print(accel[1]); Serial.print(" "); Serial.println(accel[2]);
+      Serial.print("gyro: "); Serial.print(gyro[1]); Serial.print(":"); Serial.println(gyro[0]);
 
+      Serial.print("outp: ");
       Serial.print(estimated_pitch);
       Serial.print(" ");
       Serial.print(estimated_roll);
