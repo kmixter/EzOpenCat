@@ -6,7 +6,10 @@ ATLIBDIR=$(ADIR)/libraries
 PKG=mpu_reader
 O=out/arduino
 BIN=$(O)/$(PKG)
-OBJS=$(O)/mpu_reader.o $(O)/mpu6050.o
+OBJS=$(O)/mpu_reader.o $(O)/mpu6050.o $(O)/remote_control.o \
+    $(O)/third_party/Arduino-IRremote-master/irRecv.o \
+    $(O)/third_party/Arduino-IRremote-master/IRremote.o \
+    $(O)/third_party/Arduino-IRremote-master/ir_NEC.o
 MCU=atmega328p
 ARDUINO_DEFINE=ARDUINO_AVR_NANO
 ARDUINO_VARIANT_INCLUDE=$(ADIR)/hardware/arduino/avr/variants/eightanaloginputs
@@ -16,6 +19,7 @@ CFLAGS=-g -Wall -Werror -Os -ffunction-sections -fdata-sections \
     -Wno-error=narrowing -flto -mmcu=$(MCU) -DF_CPU=16000000L -DARDUINO=10808 \
     -D$(ARDUINO_DEFINE) -DARDUINO_ARCH_AVR \
     -I$(ADIR)/hardware/arduino/avr/cores/arduino \
+    -Ithird_party/Arduino-IRremote-master/ \
     -I$(ARDUINO_VARIANT_INCLUDE) \
     -I$(ALIBDIR)/Wire/src -I$(ATLIBDIR)/Servo/src
 
@@ -26,6 +30,7 @@ all: directories $(BIN).elf
 
 directories:
 	mkdir -p $(O) $(O)/Wire/src $(O)/Wire/src/utility \
+		$(O)/third_party/Arduino-IRremote-master \
 		$(O)/Servo/src/avr
 
 LDFLAGS=-Os -g -flto -fuse-linker-plugin -Wl,--gc-sections,--relax \

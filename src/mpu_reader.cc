@@ -1,10 +1,18 @@
 #include <Arduino.h>
 
 #include "mpu6050.h"
+#include "remote_control.h"
 
 static const int kMpuI2CAddr = 0x68;
 static const float kGyroWeight = .98;
 static const float kDt = 10;
+
+class MyControlObserver : public ControlObserver {
+ public:
+  void OnRemoteKey(RemoteKey key) {
+    Serial.print("Serial received: "); Serial.println(key);
+  }
+};
 
 int main() {
   init();
@@ -15,6 +23,9 @@ int main() {
 
   MPU6050 mpu(kMpuI2CAddr, kDt / 1000, 1);
   mpu.Initialize();
+  RemoteControl control(A0);
+  MyControlObserver controlObserver;
+  control.Initialize();
 
   for (int count = 0;; ++count) {
     float estimated_pitch = 0;
@@ -36,6 +47,7 @@ int main() {
       Serial.print(estimated_roll);
       Serial.println("");
     }
+    control.ReadAndDispatch(&controlObserver);
     delay(kDt);
   }
 }
