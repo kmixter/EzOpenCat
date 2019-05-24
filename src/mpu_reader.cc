@@ -1,7 +1,9 @@
 #include <Arduino.h>
 
+#include "eeprom_settings.h"
 #include "mpu6050.h"
 #include "remote_control.h"
+#include "servo_animator.h"
 
 static const int kMpuI2CAddr = 0x68;
 static const float kGyroWeight = .98;
@@ -14,18 +16,31 @@ class MyControlObserver : public ControlObserver {
   }
 };
 
+void HandleString(const char* str) {
+  Serial.print("Got command: ");
+  Serial.println(str);
+}
+
 int main() {
   init();
 
   // initialize serial communication at 9600 bits per second:
   Serial.begin(57600);
-  Serial.println("You are here");
 
   MPU6050 mpu(kMpuI2CAddr, kDt / 1000, 1);
   mpu.Initialize();
   RemoteControl control(A0);
   MyControlObserver controlObserver;
   control.Initialize();
+  ServoAnimator animator;
+  EepromSettingsManager settings_manager;
+  settings_manager.Initialize();
+  animator.Initialize();
+  animator.SetServoParams(&settings_manager.settings().servo_param[0]);
+  animator.Attach();
+
+  char cmd[80];
+  char* cmd_cursor = cmd;
 
   for (int count = 0;; ++count) {
     float estimated_pitch = 0;
@@ -48,6 +63,16 @@ int main() {
       Serial.println("");
     }
     control.ReadAndDispatch(&controlObserver);
+    //animator.Animate();
+    while (Serial.available()) {
+      int ch = Serial.read();
+      if (ch == '\r') {
+        *cmd_cursor = 0;
+        HandleString(cmd);
+        cmd_cursor = cmd;
+      } else
+        *cmd_cursor++ = ch;
+    }
     delay(kDt);
   }
 }

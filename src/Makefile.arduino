@@ -6,7 +6,8 @@ ATLIBDIR=$(ADIR)/libraries
 PKG=mpu_reader
 O=out/arduino
 BIN=$(O)/$(PKG)
-OBJS=$(O)/mpu_reader.o $(O)/mpu6050.o $(O)/remote_control.o \
+COMMONOBJS=$(O)/mpu6050.o $(O)/remote_control.o \
+	 $(O)/servo_animator.o $(O)/eeprom_settings.o \
     $(O)/third_party/Arduino-IRremote-master/irRecv.o \
     $(O)/third_party/Arduino-IRremote-master/IRremote.o \
     $(O)/third_party/Arduino-IRremote-master/ir_NEC.o
@@ -21,12 +22,12 @@ CFLAGS=-g -Wall -Werror -Os -ffunction-sections -fdata-sections \
     -I$(ADIR)/hardware/arduino/avr/cores/arduino \
     -Ithird_party/Arduino-IRremote-master/ \
     -I$(ARDUINO_VARIANT_INCLUDE) \
-    -I$(ALIBDIR)/Wire/src -I$(ATLIBDIR)/Servo/src
+    -I$(ALIBDIR)/Wire/src -I$(ALIBDIR)/EEPROM/src -I$(ATLIBDIR)/Servo/src
 
 CXXFLAGS=$(CFLAGS) -fpermissive -fno-exceptions -std=gnu++11 \
     -fno-threadsafe-statics
 
-all: directories $(BIN).elf
+all: directories $(BIN).elf $(O)/calibrate.elf
 
 directories:
 	mkdir -p $(O) $(O)/Wire/src $(O)/Wire/src/utility \
@@ -56,7 +57,7 @@ $(O)/%.o: %.cc
 $(O)/%.o: %.cpp
 	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $< -o $@
 
-$(BIN).hex: $(BIN).elf
+%.hex: %.elf
 	$(OBJCOPY) -O ihex $< $@
 
 $(O)/core.a:
@@ -88,17 +89,23 @@ $(O)/libs.a:
 		$(AR) rcs $(O)/libs.a $(O)/$$file.o; \
 	done
 
-$(BIN).elf: $(OBJS) $(O)/libs.a $(O)/core.a
+$(O)/calibrate.elf: $(O)/calibrate.o $(COMMONOBJS) $(O)/libs.a $(O)/core.a
 	$(CC) $(LDFLAGS) -o $@ $^
 	$(ABINDIR)/avr-size $@
 
-install: directories $(BIN).hex
-	$(ABINDIR)/avrdude -C$(AETCDIR)/avrdude.conf -v -p$(MCU) -c$(PROGRAMMER_ID) -P$(PORT) -b57600 -D -Uflash:w:$(BIN).hex:i
+$(BIN).elf: $(O)/mpu_reader.o $(COMMONOBJS) $(O)/libs.a $(O)/core.a
+	$(CC) $(LDFLAGS) -o $@ $^
+	$(ABINDIR)/avr-size $@
+
+%.install: %.hex
+	$(ABINDIR)/avrdude -C$(AETCDIR)/avrdude.conf -v -p$(MCU) -c$(PROGRAMMER_ID) -P$(PORT) -b57600 -D -Uflash:w:$<:i
 
 serial:
 	picocom -b 57600 $(PORT)
 
-run: install serial
+run: $(BIN).install serial
+
+calib: $(O)/calibrate.install serial
 
 clean:
 	rm -rf $(O)

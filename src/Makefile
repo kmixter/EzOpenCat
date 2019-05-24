@@ -14,5 +14,8 @@ run:
 	make -f Makefile.host
 	make -f Makefile.arduino run
 
+calib:
+	make -f Makefile.arduino calib
+
 serial:
 	make -f Makefile.arduino serial
