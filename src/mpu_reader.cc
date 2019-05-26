@@ -16,9 +16,49 @@ class MyControlObserver : public ControlObserver {
   }
 };
 
-void HandleString(const char* str) {
+void HandleString(const char* str, ServoAnimator* animator) {
   Serial.print("Got command: ");
   Serial.println(str);
+  int angles[11] = {0};
+  int which = 0;
+  int this_value = 0;
+  bool this_negative = false;
+
+  for (const char* p = str; *p; ++p) {
+    if (*p == ' ') continue;
+    if (*p == '-') {
+      this_negative = true;
+      continue;
+    }
+    if (*p >= '0' && *p <= '9') {
+      this_value *= 10;
+      this_value += *p - '0';
+      continue;
+    }
+    if (*p == ',')  {
+      angles[which] = this_value;
+      if (this_negative)
+        angles[which] *= -1;
+      which++;
+      if (which == 11) break;
+      continue;
+    }
+    Serial.print("ignoring ");
+    Serial.println(*p);
+  }
+  if (which == 8) {
+    memmove(&angles[3], &angles[0], sizeof(int[8]));
+    memset(&angles[0], 0, sizeof(int[2]));
+  }
+
+
+  Serial.print("Moving to ");
+  for (int i = 0; i < 11; ++i) {
+    Serial.print(angles[i]);
+    Serial.print(", ");
+  }
+  Serial.println("");
+  animator->SetFrame(angles);
 }
 
 int main() {
@@ -36,7 +76,7 @@ int main() {
   EepromSettingsManager settings_manager;
   settings_manager.Initialize();
   animator.Initialize();
-  animator.SetServoParams(&settings_manager.settings().servo_param[0]);
+  animator.SetServoParams(&settings_manager.settings().servo_zero_offset[0]);
   animator.Attach();
 
   char cmd[80];
@@ -68,7 +108,7 @@ int main() {
       int ch = Serial.read();
       if (ch == '\r') {
         *cmd_cursor = 0;
-        HandleString(cmd);
+        HandleString(cmd, &animator);
         cmd_cursor = cmd;
       } else
         *cmd_cursor++ = ch;

@@ -33,12 +33,12 @@ class ServoAnimator {
   void Initialize();
   void Attach();
   void Detach();
-  void SetServoParams(const EepromSettings::ServoParam* params);
-  void SetFrame(int* servo_values);
+  void SetServoParams(const int8_t* servo_zero_offsets);
+  void SetFrame(const int* servo_values);
+  const int* GetFrame(AnimationSequence sequence, int number);
 
  private:
-  const int* GetFrame(AnimationSequence sequence, int number);
-  const EepromSettings::ServoParam* servo_params_ = nullptr;
+  const int8_t* servo_zero_offsets_ = nullptr;
   const int* current_frame_ = nullptr;
   const int* next_frame_ = nullptr;
   Servo* servo_[kServoCount];

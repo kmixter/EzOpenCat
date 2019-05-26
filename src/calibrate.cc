@@ -11,8 +11,18 @@ static const float kDt = 10;
 static const int kSettleGyroDiff = 2;
 
 EepromSettingsManager s_eeprom_settings;
+ServoAnimator s_servo_animator;
 
-void UpdateMenu(int cursor, const char* message, const char** options)
+class MenuObserver {
+ public:
+  MenuObserver() {}
+  virtual void Show() = 0;
+  virtual void HandleKey(char key) = 0;
+  virtual bool HandleSelection() = 0;
+  virtual ~MenuObserver() {};
+};
+
+void UpdateMenu(int cursor, const char* message, const char** options, MenuObserver** observers)
 {
   Serial.print("\e[1;1H\e[0m\e[1m");
   Serial.println(message);
@@ -31,16 +41,20 @@ void UpdateMenu(int cursor, const char* message, const char** options)
     Serial.print(options[i]);
     for (int pad = max_strlen - strlen(options[i]); pad > 0; --pad)
       Serial.print(" ");
+    if (observers != nullptr) {
+      if (observers[i] != nullptr)
+        observers[i]->Show();
+    }
     Serial.println("");
   }
   Serial.print("\e[0m");
 }
 
-int GetSelection(const char* message, const char** options) {
+int GetSelection(const char* message, const char** options, MenuObserver** observers = nullptr) {
   int cursor = 0;
  
   Serial.print("\e[2J");
-  UpdateMenu(cursor, message, options);
+  UpdateMenu(cursor, message, options, observers);
  
   while (true) {
     yield();
@@ -49,14 +63,19 @@ int GetSelection(const char* message, const char** options) {
     uint8_t b = Serial.read();
     switch (b) {
       case '\r':
+        if (observers != nullptr && observers[cursor] != nullptr) {
+          if (!observers[cursor]->HandleSelection())
+            break;
+        }
         return cursor;
       case '\e':
         break;
       default:
+        observers[cursor]->HandleKey(b);
         continue;
     }
 
-    delay(100);
+    delay(10);
     b = Serial.read();
     if (b != '[') continue;
 
@@ -69,7 +88,15 @@ int GetSelection(const char* message, const char** options) {
       if (options[cursor + 1] != nullptr)
         ++cursor;
     }
-    UpdateMenu(cursor, message, options);
+    if (b == 'C') {  // Right
+      if (observers[cursor] != nullptr)
+        observers[cursor]->HandleKey(2);
+    }
+    if (b == 'D') {  // Left
+      if (observers[cursor] != nullptr)
+        observers[cursor]->HandleKey(1);
+    }
+    UpdateMenu(cursor, message, options, observers);
   }
 }
 
@@ -79,17 +106,76 @@ void CalibrateServos() {
     "Head",
     "Neck",
     "Left Front Knee",
-    "Right Front Knee",
     "Left Front Shoulder",
+    "Right Front Knee",
     "Right Front Shoulder",
     "Left Back Shoulder",
-    "Right Back Shoulder",
     "Left Back Knee",
+    "Right Back Shoulder",
     "Right Back Knee",
     "Tail",
     nullptr
   };
-  GetSelection("Choose which servo to calibrate:", kServos);
+  int8_t* values = &s_eeprom_settings.settings().servo_zero_offset[0];
+  class ServoCalibrationMenu : public MenuObserver {
+   public:
+    ServoCalibrationMenu(int8_t* value) : value_(value) {}
+
+    void Show() override {
+      Serial.print("  \e[0m\e[30m\e[47m");
+      int pad = *value_ < 0 ? 0 : 1;
+      int v = abs(*value_);
+      if (v < 10) {
+        pad += 2;
+      } else if (v < 100) {
+        pad += 1;
+      }
+      while (pad--) Serial.print(" ");
+      Serial.print(*value_);
+    }
+
+    bool HandleSelection() override {
+      return false;
+    }
+
+    void HandleKey(char key) override {
+      bool any_change = false;
+      if (key == 2 || key == '+') {  // up
+        ++*value_;
+        any_change = true;
+      } else if (key == 1 || key == '-') {  // value;
+        --*value_;
+        any_change = true;
+      }
+      if (any_change)
+        s_servo_animator.SetFrame(s_servo_animator.GetFrame(kAnimationCalibrationPose, 0));
+    }
+
+    ~ServoCalibrationMenu() override {}
+
+   protected:
+    int8_t* value_;
+  };
+
+  MenuObserver** observers = new MenuObserver*[12];
+  observers[0] = nullptr;
+  for (int i = 1; i < 12; ++i) {
+    observers[i] = new ServoCalibrationMenu(&values[i - 1]);
+  }
+
+  s_servo_animator.Attach();
+  s_servo_animator.SetServoParams(&s_eeprom_settings.settings().servo_zero_offset[0]);
+  s_servo_animator.SetFrame(s_servo_animator.GetFrame(kAnimationCalibrationPose, 0));
+
+  GetSelection("Choose which servo to calibrate:", kServos, observers);
+
+  for (int i = 1; i < 12; ++i) {
+    delete observers[i];
+  }
+
+  delete[] observers;
+  s_eeprom_settings.Store();
+  s_servo_animator.Detach();
 }
 
 void CalibrateMPU() {
@@ -180,17 +266,64 @@ void CalibrateMPU() {
   s_eeprom_settings.Store();
 }
 
+void SetPose() {
+  const char* kPoseSelections[] = {
+    "Back <<",
+    "Create Pose",
+    "Rest Pose",
+    "Calibrate Pose",
+    nullptr
+  };
+
+  class PoseMenu : public MenuObserver {
+   public:
+    PoseMenu(AnimationSequence animation) : animation_(animation) {}
+
+    void Show() override {}
+
+    void HandleKey(char key) override {
+    }
+
+    bool HandleSelection() override {
+      s_servo_animator.SetFrame(s_servo_animator.GetFrame(animation_, 0));
+      return false;
+    }
+
+    ~PoseMenu() override {}
+
+   protected:
+    AnimationSequence animation_;
+  };
+
+  s_servo_animator.Attach();
+
+  MenuObserver** observers = new MenuObserver*[4];
+  observers[0] = nullptr;
+  observers[1] = nullptr;
+  for (int i = 2; i < 4; ++i) {
+    observers[i] = new PoseMenu(AnimationSequence(i - 2));
+  }
+
+  // Only selection returned by GetSelection will be back.
+  GetSelection("Pick one:", kPoseSelections, observers);
+
+  s_servo_animator.Detach();
+}
+
 int main() {
   init();
 
   // initialize serial communication at 9600 bits per second:
   Serial.begin(57600);
   s_eeprom_settings.Initialize();
+  s_servo_animator.Initialize();
+  s_servo_animator.Detach();
 
   while (true) {
     const char* kTopMenuSelections[] = {
       "Calibrate Servos",
       "Calibrate MPU",
+      "Set Pose",
       nullptr
     };
 
@@ -200,6 +333,9 @@ int main() {
         break;
       case 1:
         CalibrateMPU();
+        break;
+      case 2:
+        SetPose();
         break;
     }
   }
