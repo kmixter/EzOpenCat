@@ -148,7 +148,7 @@ void CalibrateServos() {
         any_change = true;
       }
       if (any_change)
-        s_servo_animator.SetFrame(s_servo_animator.GetFrame(kAnimationCalibrationPose, 0));
+        s_servo_animator.SetFrame(s_servo_animator.GetFrame(kAnimationCalibrationPose, 0), millis());
     }
 
     ~ServoCalibrationMenu() override {}
@@ -165,7 +165,7 @@ void CalibrateServos() {
 
   s_servo_animator.Attach();
   s_servo_animator.SetServoParams(&s_eeprom_settings.settings().servo_zero_offset[0]);
-  s_servo_animator.SetFrame(s_servo_animator.GetFrame(kAnimationCalibrationPose, 0));
+  s_servo_animator.SetFrame(s_servo_animator.GetFrame(kAnimationCalibrationPose, 0), millis());
 
   GetSelection("Choose which servo to calibrate:", kServos, observers);
 
@@ -285,7 +285,7 @@ void SetPose() {
     }
 
     bool HandleSelection() override {
-      s_servo_animator.SetFrame(s_servo_animator.GetFrame(animation_, 0));
+      s_servo_animator.SetFrame(s_servo_animator.GetFrame(animation_, 0), millis());
       return false;
     }
 

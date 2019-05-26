@@ -58,7 +58,7 @@ void HandleString(const char* str, ServoAnimator* animator) {
     Serial.print(", ");
   }
   Serial.println("");
-  animator->SetFrame(angles);
+  animator->SetFrame(angles, millis());
 }
 
 int main() {

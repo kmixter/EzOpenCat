@@ -1,6 +1,8 @@
 #include "servo_animator.h"
 
+#ifndef TESTING
 #include <Arduino.h>
+#endif  // TESTING
 
 static const int kPinMap[] = {
   3,  // kServoHead,
@@ -75,17 +77,19 @@ void ServoAnimator::SetServoParams(const int8_t* servo_zero_offsets) {
   servo_zero_offsets_ = servo_zero_offsets;
 }
 
-void ServoAnimator::SetFrame(const int* servo_values) {
+void ServoAnimator::SetFrame(const int* servo_values, unsigned long millis_now) {
   for (int i = 0; i < kServoCount; ++i) {
+    int angle = 90 + (servo_values[i] + servo_zero_offsets_[i]) * kDirectionMap[i];
+#if 0
     Serial.print("Servo ");
     Serial.print(i);
     Serial.print(": ");
     Serial.print(servo_values[i]);
     Serial.print(", ");
     Serial.print(servo_zero_offsets_[i]);
-    int angle = 90 + (servo_values[i] + servo_zero_offsets_[i]) * kDirectionMap[i];
     Serial.print("setting to ");
     Serial.println(angle);
+#endif
     servo_[i]->write(angle);
   }
   //while (!Serial.available()) yield();
