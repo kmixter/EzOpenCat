@@ -38,19 +38,23 @@ class Servo {
 
 const int kAnimationRest = 37;
 const int kAnimationCalibrationPose = 18;
+const int kAnimationSleep = 39;
+const int kAnimationBalance = 16;
+const int kAnimationSit = 38;
+const int kAnimationWalk = 13;
 
 enum ServoIndex {
   kServoHead,
   kServoNeck,
-  kServoLeftFrontKnee,
-  kServoLeftFrontShoulder,
-  kServoRightFrontKnee,
-  kServoRightFrontShoulder,
-  kServoLeftBackShoulder,
-  kServoLeftBackKnee,
-  kServoRightBackShoulder,
-  kServoRightBackKnee,
   kServoTail,
+  kServoLeftFrontShoulder,
+  kServoRightFrontShoulder,
+  kServoRightBackShoulder,
+  kServoLeftBackShoulder,
+  kServoLeftFrontKnee,
+  kServoRightFrontKnee,
+  kServoRightBackKnee,
+  kServoLeftBackKnee,
   kServoCount
 };
 
@@ -63,7 +67,6 @@ class ServoAnimator {
   void Detach();
   void SetServoParams(const int8_t* servo_zero_offsets);
   void SetFrame(const int8_t* servo_values, unsigned long millis_now);
-  const char* GetAnimationNameByNumber(int animation);
   const int8_t* GetFrame(int animation, int number);
   void Animate(unsigned long millis_now);
 

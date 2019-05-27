@@ -13,15 +13,15 @@
 static const int kPinMap[] = {
   3,  // kServoHead,
   13, // kServoNeck,
-  9,  // kServoLeftFrontKnee,
-  8,  // kServoLeftFrontShoulder,
-  4,  // kServoRightFrontKnee,
-  6,  // kServoRightFrontShoulder,
-  11, // kServoLeftBackShoulder,
-  10, // kServoLeftBackKnee,
-  7,  // kServoRightBackShoulder,
-  5,  // kServoRightBackKnee,
   12, // kServoTail,
+  8,  // kServoLeftFrontShoulder,
+  6,  // kServoRightFrontShoulder,
+  7,  // kServoRightBackShoulder,
+  11, // kServoLeftBackShoulder,
+  9,  // kServoLeftFrontKnee,
+  4,  // kServoRightFrontKnee,
+  5,  // kServoRightBackKnee,
+  10, // kServoLeftBackKnee,
   // kServoCount
 };
 
@@ -33,17 +33,11 @@ static const int kDirectionMap[] = {
   -1,
   -1,
   1,
+  -1,
   1,
-  -1,
-  -1,
-  1
+  1,
+  -1
 };
-
-const char* ServoAnimator::GetAnimationNameByNumber(int animation) {
-  if (animation < 0 || animation >= NUM_SKILLS)
-    return nullptr;
-  return skillNameWithType[animation];
-}
 
 const int8_t* ServoAnimator::GetFrame(int animation, int number) {
   static int8_t result[11];
@@ -53,6 +47,8 @@ const int8_t* ServoAnimator::GetFrame(int animation, int number) {
 
   const char* instinct = progmemPointer[animation];
   const char* walking_frame = nullptr;
+  if (number >= pgm_read_int8(instinct))
+    return nullptr;
   if (pgm_read_int8(instinct) == 1) {
     const char* full_frame = instinct + 3;
     // Single frame has 16 entries.
@@ -61,8 +57,6 @@ const int8_t* ServoAnimator::GetFrame(int animation, int number) {
     result[kServoTail] = pgm_read_int8(full_frame + 2);
     walking_frame = full_frame + 8;
   } else {
-    if (number >= pgm_read_int8(instinct))
-      return nullptr;
     walking_frame = instinct + 3 + 8 * number;
     result[kServoHead] = 0;
     result[kServoNeck] = 0;

@@ -13,6 +13,24 @@ static const int kSettleGyroDiff = 2;
 EepromSettingsManager s_eeprom_settings;
 ServoAnimator s_servo_animator;
 
+static const char* kServosNames[] = {
+  "Head",
+  "Neck",
+  "Tail",
+  "Left Front Shoulder",
+  "Right Front Shoulder",
+  "Right Back Shoulder",
+  "Left Back Shoulder",
+  "Left Front Knee",
+  "Right Front Knee",
+  "Right Back Knee",
+  "Left Back Knee",
+  nullptr
+};
+
+const char kKeyUp = -1;
+const char kKeyDown = -2;
+
 class MenuObserver {
  public:
   MenuObserver() {}
@@ -71,7 +89,10 @@ int GetSelection(const char* message, const char** options, MenuObserver** obser
       case '\e':
         break;
       default:
-        observers[cursor]->HandleKey(b);
+        if (observers != nullptr && observers[cursor] != nullptr) {
+          observers[cursor]->HandleKey(b);
+          UpdateMenu(cursor, message, options, observers);
+        }
         continue;
     }
 
@@ -90,83 +111,127 @@ int GetSelection(const char* message, const char** options, MenuObserver** obser
     }
     if (b == 'C') {  // Right
       if (observers[cursor] != nullptr)
-        observers[cursor]->HandleKey(2);
+        observers[cursor]->HandleKey(kKeyUp);
     }
     if (b == 'D') {  // Left
       if (observers[cursor] != nullptr)
-        observers[cursor]->HandleKey(1);
+        observers[cursor]->HandleKey(kKeyDown);
     }
     UpdateMenu(cursor, message, options, observers);
   }
 }
 
+void ShowByte(int8_t value) {
+  Serial.print("  \e[0m\e[30m\e[47m");
+  int pad = value < 0 ? 0 : 1;
+  int v = abs(value);
+  if (v < 10) {
+    pad += 2;
+  } else if (v < 100) {
+    pad += 1;
+  }
+  while (pad--) Serial.print(" ");
+  Serial.print(value);
+}
+
+class ServoValueMenu : public MenuObserver {
+ public:
+  ServoValueMenu(int8_t* value, const int8_t* frame) : value_(value), frame_(frame) {
+    is_neg_ = *value_ < 0;
+  }
+
+  void Show() override {
+    ShowByte(*value_);
+  }
+
+  bool HandleSelection() override {
+    return false;
+  }
+
+  void HandleKey(char key) override {
+    int old_value = *value_;
+    if (key == kKeyUp) {  // up
+      ++*value_;
+    } else if (key == kKeyDown) {  // value
+      --*value_;
+    } else if (key == 8 || key == 127) {  // backspace
+      *value_ /= 10;
+    } else if (key == '-') {
+      *value_ *= -1;
+      is_neg_ = !is_neg_;
+    } else if (key >= '0' && key <= '9') {
+      if (*value_ < -12 || *value_ > 12)
+        return;
+      *value_ *= 10;
+      if (*value_ < 0)
+        *value_ -= key - '0';
+      else
+        *value_ += key - '0';
+      if (is_neg_ && *value_ > 0)
+        *value_ *= -1;
+    }
+    if (*value_ != old_value)
+      s_servo_animator.SetFrame(frame_, millis());
+  }
+
+  ~ServoValueMenu() override {}
+
+ protected:
+  int8_t* value_;
+  const int8_t* frame_;
+  bool is_neg_;  // is_neg handles remembering '-' when the value is zero.
+};
+
+
 void CalibrateServos() {
-  const char* kServos[] = {
-    "Back <<",
-    "Head",
-    "Neck",
-    "Left Front Knee",
-    "Left Front Shoulder",
-    "Right Front Knee",
-    "Right Front Shoulder",
-    "Left Back Shoulder",
-    "Left Back Knee",
-    "Right Back Shoulder",
-    "Right Back Knee",
-    "Tail",
-    nullptr
+  const char* options[11 + 2] = {
+    "Back <<"
   };
   int8_t* values = &s_eeprom_settings.settings().servo_zero_offset[0];
-  class ServoCalibrationMenu : public MenuObserver {
-   public:
-    ServoCalibrationMenu(int8_t* value) : value_(value) {}
+  const int8_t* frame = s_servo_animator.GetFrame(kAnimationCalibrationPose, 0);
 
-    void Show() override {
-      Serial.print("  \e[0m\e[30m\e[47m");
-      int pad = *value_ < 0 ? 0 : 1;
-      int v = abs(*value_);
-      if (v < 10) {
-        pad += 2;
-      } else if (v < 100) {
-        pad += 1;
-      }
-      while (pad--) Serial.print(" ");
-      Serial.print(*value_);
-    }
-
-    bool HandleSelection() override {
-      return false;
-    }
-
-    void HandleKey(char key) override {
-      bool any_change = false;
-      if (key == 2 || key == '+') {  // up
-        ++*value_;
-        any_change = true;
-      } else if (key == 1 || key == '-') {  // value;
-        --*value_;
-        any_change = true;
-      }
-      if (any_change)
-        s_servo_animator.SetFrame(s_servo_animator.GetFrame(kAnimationCalibrationPose, 0), millis());
-    }
-
-    ~ServoCalibrationMenu() override {}
-
-   protected:
-    int8_t* value_;
-  };
+  for (int i = 0; i < 11; ++i)
+    options[i + 1] = kServosNames[i];
 
   MenuObserver** observers = new MenuObserver*[12];
   observers[0] = nullptr;
   for (int i = 1; i < 12; ++i) {
-    observers[i] = new ServoCalibrationMenu(&values[i - 1]);
+    observers[i] = new ServoValueMenu(&values[i - 1], frame);
   }
 
   s_servo_animator.Attach();
-  s_servo_animator.SetFrame(s_servo_animator.GetFrame(kAnimationCalibrationPose, 0), millis());
+  s_servo_animator.SetFrame(frame, millis());
 
-  GetSelection("Choose which servo to calibrate:", kServos, observers);
+  GetSelection("Choose which servo to calibrate:", options, observers);
+
+  for (int i = 1; i < 12; ++i) {
+    delete observers[i];
+  }
+
+  delete[] observers;
+  s_eeprom_settings.Store();
+  s_servo_animator.Detach();
+}
+
+void CreatePose() {
+  const char* options[11 + 2] = {
+    "Back <<"
+  };
+  int8_t this_frame[kServoCount] = {0};
+
+  for (int i = 0; i < 11; ++i)
+    options[i + 1] = kServosNames[i];
+
+  MenuObserver** observers = new MenuObserver*[12];
+  observers[0] = nullptr;
+  for (int i = 1; i < 12; ++i) {
+    observers[i] = new ServoValueMenu(&this_frame[i - 1], this_frame);
+  }
+
+  s_servo_animator.Attach();
+  s_servo_animator.SetFrame(this_frame, millis());
+
+  GetSelection("Create the pose:", options, observers);
 
   for (int i = 1; i < 12; ++i) {
     delete observers[i];
@@ -270,20 +335,46 @@ void SetPose() {
     "Back <<",
     "Rest Pose",
     "Calibrate Pose",
+    "Sleep",
+    "Balance",
+    "Sit",
+    "Walk",
     nullptr
   };
 
   class PoseMenu : public MenuObserver {
    public:
-    PoseMenu(int animation) : animation_(animation) {}
+    PoseMenu(int animation) : animation_(animation) {
+      if (s_servo_animator.GetFrame(animation_, 1) == nullptr)
+        return;
+      multi_frame_ = true;
+    }
 
-    void Show() override {}
+    void Show() override {
+      if (!multi_frame_)
+        return;
+      ShowByte(frame_number_);
+    }
 
     void HandleKey(char key) override {
+      if (!multi_frame_)
+        return;
+      if (key == kKeyUp) {
+        frame_number_++;
+        const int8_t* frame = s_servo_animator.GetFrame(animation_, frame_number_);
+        if (!frame) {
+          frame_number_--;
+        }
+        HandleSelection();
+      }
+      if (key == kKeyDown && frame_number_ != 0) {
+        frame_number_--;
+        HandleSelection();
+      }
     }
 
     bool HandleSelection() override {
-      s_servo_animator.SetFrame(s_servo_animator.GetFrame(animation_, 0), millis());
+      s_servo_animator.SetFrame(s_servo_animator.GetFrame(animation_, frame_number_), millis());
       return false;
     }
 
@@ -291,17 +382,29 @@ void SetPose() {
 
    protected:
     int animation_;
+    bool multi_frame_ = false;
+    int frame_number_ = 0;
   };
 
   s_servo_animator.Attach();
 
-  MenuObserver** observers = new MenuObserver*[3];
+  MenuObserver** observers = new MenuObserver*[7];
   observers[0] = nullptr;
   observers[1] = new PoseMenu(kAnimationRest);
   observers[2] = new PoseMenu(kAnimationCalibrationPose);
+  observers[3] = new PoseMenu(kAnimationSleep);
+  observers[4] = new PoseMenu(kAnimationBalance);
+  observers[5] = new PoseMenu(kAnimationSit);
+  observers[6] = new PoseMenu(kAnimationWalk);
 
   // Only selection returned by GetSelection will be back.
   GetSelection("Pick one:", kPoseSelections, observers);
+
+  for (int i = 1; i < 7; ++i) {
+    delete observers[i];
+  }
+
+  delete[] observers;
 
   s_servo_animator.Detach();
 }
@@ -311,6 +414,8 @@ int main() {
 
   // initialize serial communication at 9600 bits per second:
   Serial.begin(57600);
+  Serial.println("Starting...");
+  delay(300);
 
   s_eeprom_settings.Initialize();
   s_servo_animator.Initialize();
@@ -321,6 +426,7 @@ int main() {
       "Calibrate Servos",
       "Calibrate MPU",
       "Set Pose",
+      "Create pose",
       nullptr
     };
 
@@ -333,6 +439,9 @@ int main() {
         break;
       case 2:
         SetPose();
+        break;
+      case 3:
+        CreatePose();
         break;
     }
   }
