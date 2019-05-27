@@ -315,6 +315,7 @@ int main() {
 
   // initialize serial communication at 9600 bits per second:
   Serial.begin(57600);
+
   s_eeprom_settings.Initialize();
   s_servo_animator.Initialize();
   s_servo_animator.Detach();
@@ -339,8 +340,4 @@ int main() {
         break;
     }
   }
-}
-
-void yield() {
-  if (serialEventRun) serialEventRun();
 }

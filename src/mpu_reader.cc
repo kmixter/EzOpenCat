@@ -91,6 +91,7 @@ int main() {
     mpu.ReadBoth(accel, gyro);
 
     mpu.ComputeFilteredPitchRoll(accel, gyro, &estimated_pitch, &estimated_roll);
+#if 0
     if (count % 10 == 0) {
       Serial.println("");
       Serial.print("accl: "); Serial.print(accel[0]); Serial.print(" "); Serial.print(accel[1]); Serial.print(" "); Serial.println(accel[2]);
@@ -102,6 +103,7 @@ int main() {
       Serial.print(estimated_roll);
       Serial.println("");
     }
+#endif
     control.ReadAndDispatch(&controlObserver);
     //animator.Animate();
     while (Serial.available()) {
@@ -115,8 +117,4 @@ int main() {
     }
     delay(kDt);
   }
-}
-
-void yield() {
-  if (serialEventRun) serialEventRun();
 }

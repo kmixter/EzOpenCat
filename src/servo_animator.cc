@@ -2,7 +2,13 @@
 
 #ifndef TESTING
 #include <Arduino.h>
+#define pgm_read_int8(_a) (int8_t)pgm_read_byte(_a)
+#else
+#define PROGMEM
+#define pgm_read_int8(_a) (*(_a))
 #endif  // TESTING
+
+#include "Instinct.h"
 
 static const int kPinMap[] = {
   3,  // kServoHead,
@@ -34,24 +40,43 @@ static const int kDirectionMap[] = {
 };
 
 const int* ServoAnimator::GetFrame(AnimationSequence sequence, int number) {
-  static const int kSequence[][11] = {
-    {-30, -80, -45, 60, -45, 60, -60, 45, -60, 45, -45},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  static int result[11];
+  static const char* map[] = {
+    rest,
+    calib,
+    sleep
   };
-
-#if 0
-  const char rest[] PROGMEM = { 
-  1, 0, 0,
-  -30,-80,-45,  0, -3, -3,  3,  3, 60, 60,-60,-60,-45,-45, 45, 45,};
-#endif
 
   if (sequence >= kAnimationCount)
     return nullptr;
 
-  if (number > 0)
-    return nullptr;
+  const char* instinct = map[sequence];
+  const char* walking_frame = nullptr;
+  if (pgm_read_int8(instinct) == 1) {
+    const char* full_frame = instinct + 3;
+    // Single frame has 16 entries.
+    result[kServoHead] = pgm_read_int8(full_frame + 0);
+    result[kServoNeck] = pgm_read_int8(full_frame + 1);
+    result[kServoTail] = pgm_read_int8(full_frame + 2);
+    walking_frame = full_frame + 8;
+  } else {
+    if (number >= pgm_read_int8(instinct))
+      return nullptr;
+    walking_frame = instinct + 3 + 8 * number;
+    result[kServoHead] = 0;
+    result[kServoNeck] = 0;
+    result[kServoTail] = 0;
+  }
+  result[kServoLeftFrontKnee] = pgm_read_int8(walking_frame + 4);
+  result[kServoLeftFrontShoulder] = pgm_read_int8(walking_frame + 0);
+  result[kServoRightFrontKnee] = pgm_read_int8(walking_frame + 5);
+  result[kServoRightFrontShoulder] = pgm_read_int8(walking_frame + 1);
+  result[kServoLeftBackShoulder] = pgm_read_int8(walking_frame + 3);
+  result[kServoLeftBackKnee] = pgm_read_int8(walking_frame + 7);
+  result[kServoRightBackShoulder] = pgm_read_int8(walking_frame + 2);
+  result[kServoRightBackKnee] = pgm_read_int8(walking_frame + 6);    
 
-  return kSequence[sequence];
+  return result;
 }
 
 void ServoAnimator::Initialize() {
@@ -78,6 +103,12 @@ void ServoAnimator::SetServoParams(const int8_t* servo_zero_offsets) {
 }
 
 void ServoAnimator::SetFrame(const int* servo_values, unsigned long millis_now) {
+  if (servo_values == 0) {
+#ifndef TESTING
+    Serial.println("Invalid frame");
+#endif
+    return;
+  }
   for (int i = 0; i < kServoCount; ++i) {
     int angle = 90 + (servo_values[i] + servo_zero_offsets_[i]) * kDirectionMap[i];
 #if 0
@@ -85,9 +116,9 @@ void ServoAnimator::SetFrame(const int* servo_values, unsigned long millis_now) 
     Serial.print(i);
     Serial.print(": ");
     Serial.print(servo_values[i]);
-    Serial.print(", ");
+    Serial.print(", zeroed ");
     Serial.print(servo_zero_offsets_[i]);
-    Serial.print("setting to ");
+    Serial.print(" so setting to ");
     Serial.println(angle);
 #endif
     servo_[i]->write(angle);
