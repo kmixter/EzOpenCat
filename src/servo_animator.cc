@@ -39,18 +39,19 @@ static const int kDirectionMap[] = {
   1
 };
 
-const int* ServoAnimator::GetFrame(AnimationSequence sequence, int number) {
-  static int result[11];
-  static const char* map[] = {
-    rest,
-    calib,
-    sleep
-  };
+const char* ServoAnimator::GetAnimationNameByNumber(int animation) {
+  if (animation < 0 || animation >= NUM_SKILLS)
+    return nullptr;
+  return skillNameWithType[animation];
+}
 
-  if (sequence >= kAnimationCount)
+const int8_t* ServoAnimator::GetFrame(int animation, int number) {
+  static int8_t result[11];
+
+  if (animation < 0 || animation >= NUM_SKILLS)
     return nullptr;
 
-  const char* instinct = map[sequence];
+  const char* instinct = progmemPointer[animation];
   const char* walking_frame = nullptr;
   if (pgm_read_int8(instinct) == 1) {
     const char* full_frame = instinct + 3;
@@ -80,8 +81,6 @@ const int* ServoAnimator::GetFrame(AnimationSequence sequence, int number) {
 }
 
 void ServoAnimator::Initialize() {
-  current_frame_ = GetFrame(kAnimationRest, 0);
-  next_frame_ = GetFrame(kAnimationRest, 0);
   // Set up pins.
   for (int i = 0; i < kServoCount; ++i) {
     servo_[i] = new Servo();
@@ -102,7 +101,7 @@ void ServoAnimator::SetServoParams(const int8_t* servo_zero_offsets) {
   servo_zero_offsets_ = servo_zero_offsets;
 }
 
-void ServoAnimator::SetFrame(const int* servo_values, unsigned long millis_now) {
+void ServoAnimator::SetFrame(const int8_t* servo_values, unsigned long millis_now) {
   if (servo_values == 0) {
 #ifndef TESTING
     Serial.println("Invalid frame");
@@ -111,6 +110,7 @@ void ServoAnimator::SetFrame(const int* servo_values, unsigned long millis_now) 
   }
   for (int i = 0; i < kServoCount; ++i) {
     int angle = 90 + (servo_values[i] + servo_zero_offsets_[i]) * kDirectionMap[i];
+#ifndef TESTING
 #if 0
     Serial.print("Servo ");
     Serial.print(i);
@@ -120,6 +120,7 @@ void ServoAnimator::SetFrame(const int* servo_values, unsigned long millis_now) 
     Serial.print(servo_zero_offsets_[i]);
     Serial.print(" so setting to ");
     Serial.println(angle);
+#endif
 #endif
     servo_[i]->write(angle);
   }

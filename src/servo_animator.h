@@ -36,11 +36,8 @@ class Servo {
 
 #include "eeprom_settings.h"
 
-enum AnimationSequence {
-  kAnimationRest,
-  kAnimationCalibrationPose,
-  kAnimationCount
-};
+const int kAnimationRest = 37;
+const int kAnimationCalibrationPose = 18;
 
 enum ServoIndex {
   kServoHead,
@@ -65,14 +62,13 @@ class ServoAnimator {
   void Attach();
   void Detach();
   void SetServoParams(const int8_t* servo_zero_offsets);
-  void SetFrame(const int* servo_values, unsigned long millis_now);
-  const int* GetFrame(AnimationSequence sequence, int number);
+  void SetFrame(const int8_t* servo_values, unsigned long millis_now);
+  const char* GetAnimationNameByNumber(int animation);
+  const int8_t* GetFrame(int animation, int number);
   void Animate(unsigned long millis_now);
 
  private:
   const int8_t* servo_zero_offsets_ = nullptr;
-  const int* current_frame_ = nullptr;
-  const int* next_frame_ = nullptr;
 
 #ifdef TESTING
  public:

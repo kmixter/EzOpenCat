@@ -164,7 +164,6 @@ void CalibrateServos() {
   }
 
   s_servo_animator.Attach();
-  s_servo_animator.SetServoParams(&s_eeprom_settings.settings().servo_zero_offset[0]);
   s_servo_animator.SetFrame(s_servo_animator.GetFrame(kAnimationCalibrationPose, 0), millis());
 
   GetSelection("Choose which servo to calibrate:", kServos, observers);
@@ -269,7 +268,6 @@ void CalibrateMPU() {
 void SetPose() {
   const char* kPoseSelections[] = {
     "Back <<",
-    "Create Pose",
     "Rest Pose",
     "Calibrate Pose",
     nullptr
@@ -277,7 +275,7 @@ void SetPose() {
 
   class PoseMenu : public MenuObserver {
    public:
-    PoseMenu(AnimationSequence animation) : animation_(animation) {}
+    PoseMenu(int animation) : animation_(animation) {}
 
     void Show() override {}
 
@@ -292,17 +290,15 @@ void SetPose() {
     ~PoseMenu() override {}
 
    protected:
-    AnimationSequence animation_;
+    int animation_;
   };
 
   s_servo_animator.Attach();
 
-  MenuObserver** observers = new MenuObserver*[4];
+  MenuObserver** observers = new MenuObserver*[3];
   observers[0] = nullptr;
-  observers[1] = nullptr;
-  for (int i = 2; i < 4; ++i) {
-    observers[i] = new PoseMenu(AnimationSequence(i - 2));
-  }
+  observers[1] = new PoseMenu(kAnimationRest);
+  observers[2] = new PoseMenu(kAnimationCalibrationPose);
 
   // Only selection returned by GetSelection will be back.
   GetSelection("Pick one:", kPoseSelections, observers);
@@ -318,7 +314,7 @@ int main() {
 
   s_eeprom_settings.Initialize();
   s_servo_animator.Initialize();
-  s_servo_animator.Detach();
+  s_servo_animator.SetServoParams(&s_eeprom_settings.settings().servo_zero_offset[0]);
 
   while (true) {
     const char* kTopMenuSelections[] = {

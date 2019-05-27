@@ -19,7 +19,7 @@ class MyControlObserver : public ControlObserver {
 void HandleString(const char* str, ServoAnimator* animator) {
   Serial.print("Got command: ");
   Serial.println(str);
-  int angles[11] = {0};
+  int8_t angles[11] = {0};
   int which = 0;
   int this_value = 0;
   bool this_negative = false;

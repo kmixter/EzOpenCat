@@ -16,7 +16,7 @@ class ServoAnimatorTest : public testing::Test {
 };
 
 TEST_F(ServoAnimatorTest, GetFrame) {
-  const int* frame =
+  const int8_t* frame =
     animator_.GetFrame(kAnimationCalibrationPose, 0);
   for (int i = 0; i < kServoCount; ++i)
     EXPECT_EQ(0, frame[i]);
@@ -25,7 +25,7 @@ TEST_F(ServoAnimatorTest, GetFrame) {
 TEST_F(ServoAnimatorTest, SetFrameToCalibrationWithNoZeroOffsets) {
   for (int i = 0; i < kServoCount; ++i)
     EXPECT_FALSE(animator_.servo_[i]->attached);
-  const int* frame =
+  const int8_t* frame =
     animator_.GetFrame(kAnimationCalibrationPose, 0);
   animator_.Attach();
   animator_.SetFrame(frame, 1);
@@ -43,7 +43,7 @@ TEST_F(ServoAnimatorTest, SetFrameToCalibrationWithZeroOffsets) {
   zeroes_[kServoHead] = -5;
   zeroes_[kServoLeftFrontShoulder] = 7;
   zeroes_[kServoRightFrontShoulder] = 7;
-   const int* frame =
+   const int8_t* frame =
     animator_.GetFrame(kAnimationCalibrationPose, 0); 
   animator_.Attach();
   animator_.SetFrame(frame, 1);
