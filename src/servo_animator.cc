@@ -27,8 +27,8 @@ static const int kPinMap[] = {
 
 static const int kDirectionMap[] = {
   1,
-  1,
-  1,
+  -1,
+  -1,
   1,
   -1,
   -1,

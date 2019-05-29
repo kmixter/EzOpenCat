@@ -345,36 +345,36 @@ void SetPose() {
   class PoseMenu : public MenuObserver {
    public:
     PoseMenu(int animation) : animation_(animation) {
-      if (s_servo_animator.GetFrame(animation_, 1) == nullptr)
-        return;
-      multi_frame_ = true;
+      total_frames_ = 1;
+      while (s_servo_animator.GetFrame(animation_, total_frames_) != nullptr)
+        ++total_frames_;
     }
 
     void Show() override {
-      if (!multi_frame_)
+      if (total_frames_ == 1)
         return;
-      ShowByte(frame_number_);
+      ShowByte(current_frame_);
     }
 
     void HandleKey(char key) override {
-      if (!multi_frame_)
+      if (total_frames_ == 1)
         return;
       if (key == kKeyUp) {
-        frame_number_++;
-        const int8_t* frame = s_servo_animator.GetFrame(animation_, frame_number_);
-        if (!frame) {
-          frame_number_--;
-        }
+        current_frame_++;
+        if (current_frame_ >= total_frames_)
+          current_frame_ = 0;
         HandleSelection();
       }
-      if (key == kKeyDown && frame_number_ != 0) {
-        frame_number_--;
+      if (key == kKeyDown) {
+        current_frame_--;
+        if (current_frame_ < 0)
+          current_frame_ = total_frames_ - 1;
         HandleSelection();
       }
     }
 
     bool HandleSelection() override {
-      s_servo_animator.SetFrame(s_servo_animator.GetFrame(animation_, frame_number_), millis());
+      s_servo_animator.SetFrame(s_servo_animator.GetFrame(animation_, current_frame_), millis());
       return false;
     }
 
@@ -382,8 +382,8 @@ void SetPose() {
 
    protected:
     int animation_;
-    bool multi_frame_ = false;
-    int frame_number_ = 0;
+    int total_frames_ = 0;
+    int current_frame_ = 0;
   };
 
   s_servo_animator.Attach();
