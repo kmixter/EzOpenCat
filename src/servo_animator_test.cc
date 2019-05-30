@@ -113,7 +113,7 @@ void ServoAnimatorTest::TestAnimate(int servo, int* test_ms, int* expected_angle
   }
 }
 
-TEST_F(ServoAnimatorTest, AnimateIsSmooth) {
+TEST_F(ServoAnimatorTest, FrameInterpolationIsSmooth) {
   animator_.Attach();
 
   {
@@ -149,5 +149,35 @@ TEST_F(ServoAnimatorTest, AnimateIsSmooth) {
 
     TestAnimate(kServoRightFrontKnee, test_ms, expected_angle,
                 sizeof(test_ms) / sizeof(test_ms[0]));
+  }
+}
+
+TEST_F(ServoAnimatorTest, AnimationCalibrateCompletesAndStaysAttached) {
+  animator_.StartAnimation(kAnimationCalibrationPose, 0);
+  animator_.Animate(10000);
+  EXPECT_EQ(90, animator_.servo_[kServoHead]->value);
+  EXPECT_FALSE(animator_.animating());
+  EXPECT_TRUE(animator_.servo_[kServoHead]->attached);
+}
+
+TEST_F(ServoAnimatorTest, AnimationRestCompletesAndDetaches) {
+  animator_.StartAnimation(kAnimationRest, 0);
+
+  animator_.Animate(10000);
+  EXPECT_FALSE(animator_.animating());
+  EXPECT_FALSE(animator_.servo_[kServoHead]->attached);
+}
+
+TEST_F(ServoAnimatorTest, AnimationWalkLoops) {
+  unsigned long millis_now = 0;
+  animator_.StartAnimation(kAnimationWalk, millis_now);
+
+  for (int i = 0; i < 600; ++i) {
+    millis_now += 1000;
+    animator_.Animate(millis_now);
+    EXPECT_TRUE(animator_.servo_[kServoHead]->attached);
+    EXPECT_TRUE(animator_.animating());
+    int next_frame = (i + 1) % 43;
+    EXPECT_EQ(next_frame, animator_.animation_sequence_frame_number());
   }
 }

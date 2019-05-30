@@ -38,6 +38,7 @@ const int kAnimationSleep = 39;
 const int kAnimationBalance = 16;
 const int kAnimationSit = 38;
 const int kAnimationWalk = 13;
+const int kAnimationNone = -1;
 
 enum ServoIndex {
   kServoHead,
@@ -61,8 +62,8 @@ class ServoAnimator {
   ServoAnimator() {}
 
   void Initialize();
-  void ResetAnimation();
-  void WriteServo(int servo, int logical_angle);
+  void StartAnimation(int animation, unsigned long millis_now);
+  void Rest();
   void Attach();
   void Detach();
   void SetServoParams(const int8_t* servo_zero_offsets);
@@ -71,18 +72,29 @@ class ServoAnimator {
   void Animate(unsigned long millis_now);
   bool animating() const { return animating_; }
   void set_ms_per_degree(int ms) { ms_per_degree_ = ms; }
-  int ConvertToRealAngle(int servo, int angle) {
-    return 90 + (angle + servo_zero_offsets_[servo]) * kDirectionMap[servo];
+  int animation_sequence_frame_number() const {
+    return animation_sequence_frame_number_;
   }
 
  private:
-  unsigned long millis_last_ = 0;
-  unsigned long millis_start_;
-  const int8_t* servo_zero_offsets_ = nullptr;
-  int ms_per_degree_ = kDefaultMsPerDegree;
+  void ResetAnimation();
+  void StartNextAnimationFrame(unsigned long millis_now);
+  void WriteServo(int servo, int logical_angle);
+  int ConvertToRealAngle(int servo, int angle) {
+    return 90 + (angle + servo_zero_offsets_[servo]) * kDirectionMap[servo];
+  }
+  void InterpolateToFrame(unsigned long millis_now, bool* done);
+
   bool animating_ = false;
+  unsigned long millis_last_ = 0;
+  unsigned long millis_start_ = 0;
   int8_t start_frame_[kServoCount];
   int8_t target_frame_[kServoCount];
+  int animation_sequence_ = kAnimationNone;
+  int animation_sequence_frame_number_ = 0;
+
+  const int8_t* servo_zero_offsets_ = nullptr;
+  int ms_per_degree_ = kDefaultMsPerDegree;
   int8_t current_positions_[kServoCount];
 
 #ifdef TESTING

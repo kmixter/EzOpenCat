@@ -132,23 +132,20 @@ void ServoAnimator::ResetAnimation() {
   millis_start_ = 0;
   memset(start_frame_, 0, sizeof(start_frame_));
   memset(target_frame_, 0, sizeof(target_frame_));
+  animation_sequence_ = kAnimationNone;
+  animation_sequence_frame_number_ = 0;
 }
 
-void ServoAnimator::Animate(unsigned long millis_now) {
-  if (!animating_) {
-    //printf("@%lums, not animating\n", millis_now);
-    return;
-  }
+void ServoAnimator::StartAnimation(int animation, unsigned long millis_now) {
+  animation_sequence_ = animation;
+  animation_sequence_frame_number_ = 0;
+  Attach();
+  SetFrame(GetFrame(animation, 0), millis_now);
+}
 
-#ifndef TESTING
-  if (millis_last_ && millis_now - millis_last_ > 3) {
-    Serial.print("Slow animation: ");
-    Serial.print(millis_now - millis_last_);
-    Serial.print("ms @");
-    Serial.println(millis_now);
-  }
-#endif
-
+void ServoAnimator::InterpolateToFrame(unsigned long millis_now,
+                                       bool* done) {
+  *done = false;
   if (millis_last_ == millis_now) {
     // Already ran at this millis clock, no updates possible.
     return;
@@ -199,9 +196,56 @@ void ServoAnimator::Animate(unsigned long millis_now) {
       any_not_done = true;
   }
 
+  *done = !any_not_done;
   //printf("At end: %d\n", any_not_done);
+}
 
-  if (!any_not_done) {
-    ResetAnimation();
+void ServoAnimator::StartNextAnimationFrame(unsigned long millis_now) {
+  animation_sequence_frame_number_++;
+  const int8_t* next_frame =
+      GetFrame(animation_sequence_, animation_sequence_frame_number_);
+  if (next_frame == nullptr) {
+    if (animation_sequence_frame_number_ == 1) {
+      if (animation_sequence_ == kAnimationRest) {
+        // TODO: Create an observer interface and use it detach when we
+        // observe Rest animation finishing.
+        Detach();
+      }
+      ResetAnimation();
+      return;
+    }
+
+    animation_sequence_frame_number_ = 0;
+    next_frame = GetFrame(animation_sequence_, animation_sequence_frame_number_);
+  }
+
+  SetFrame(next_frame, millis_now);
+}
+
+void ServoAnimator::Animate(unsigned long millis_now) {
+  if (!animating_) {
+    //printf("@%lums, not animating\n", millis_now);
+    return;
+  }
+
+#ifndef TESTING
+  if (millis_last_ && millis_now - millis_last_ > 3) {
+    Serial.print("Slow animation: ");
+    Serial.print(millis_now - millis_last_);
+    Serial.print("ms @");
+    Serial.println(millis_now);
+  }
+#endif
+
+  bool done_interpolation;
+
+  InterpolateToFrame(millis_now, &done_interpolation);
+
+  if (done_interpolation) {
+    if (animation_sequence_ == kAnimationNone)
+      // A direct SetFrame call finished.
+      ResetAnimation();
+    else
+      StartNextAnimationFrame(millis_now);
   }
 }

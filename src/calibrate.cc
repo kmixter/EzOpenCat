@@ -210,7 +210,7 @@ void CalibrateServos() {
 
   delete[] observers;
   s_eeprom_settings.Store();
-  s_servo_animator.Detach();
+  s_servo_animator.StartAnimation(kAnimationRest, millis());
 }
 
 void CreatePose() {
@@ -239,7 +239,7 @@ void CreatePose() {
 
   delete[] observers;
   s_eeprom_settings.Store();
-  s_servo_animator.Detach();
+  s_servo_animator.StartAnimation(kAnimationRest, millis());
 }
 
 void CalibrateMPU() {
@@ -406,7 +406,7 @@ void SetPose() {
 
   delete[] observers;
 
-  s_servo_animator.Detach();
+  s_servo_animator.StartAnimation(kAnimationRest, millis());
 }
 
 int main() {
