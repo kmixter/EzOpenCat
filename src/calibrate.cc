@@ -446,3 +446,12 @@ int main() {
     }
   }
 }
+
+
+void yield() {
+  s_servo_animator.Animate(millis());
+
+  if (serialEventRun) {
+    serialEventRun();
+  }
+}

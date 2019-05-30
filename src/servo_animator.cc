@@ -6,7 +6,11 @@
 #else
 #define PROGMEM
 #define pgm_read_int8(_a) (*(_a))
+#include <stdio.h>
 #endif  // TESTING
+
+#include <math.h>
+#include <string.h>
 
 #include "Instinct.h"
 
@@ -25,7 +29,7 @@ static const int kPinMap[] = {
   // kServoCount
 };
 
-static const int kDirectionMap[] = {
+const int ServoAnimator::kDirectionMap[kServoCount] = {
   1,
   -1,
   -1,
@@ -79,11 +83,26 @@ void ServoAnimator::Initialize() {
   for (int i = 0; i < kServoCount; ++i) {
     servo_[i] = new Servo();
   }
+  ResetAnimation();
+  // we cannot sense initial position from servos, so assume starting
+  // at rest position.
+  memcpy(current_positions_, GetFrame(kAnimationRest, 0),
+         sizeof(current_positions_));
+}
+
+void ServoAnimator::WriteServo(int servo, int logical_angle) {
+  int real_angle = ConvertToRealAngle(servo, logical_angle);
+  servo_[servo]->write(real_angle);
+  //printf("Writing servo %d to logical %d, real %d\n", servo, logical_angle,
+  //       real_angle);
+  current_positions_[servo] = logical_angle; 
 }
 
 void ServoAnimator::Attach() {
-  for (int i = 0; i < kServoCount; ++i)
-    servo_[i]->attach(kPinMap[i], -90, 90);
+  for (int i = 0; i < kServoCount; ++i) {
+    servo_[i]->attach(kPinMap[i]);
+    WriteServo(i, current_positions_[i]);
+  }
 }
 
 void ServoAnimator::Detach() {
@@ -95,29 +114,94 @@ void ServoAnimator::SetServoParams(const int8_t* servo_zero_offsets) {
   servo_zero_offsets_ = servo_zero_offsets;
 }
 
-void ServoAnimator::SetFrame(const int8_t* servo_values, unsigned long millis_now) {
-  if (servo_values == 0) {
+void ServoAnimator::SetFrame(const int8_t* new_frame, unsigned long millis_now) {
+  if (new_frame == nullptr) {
 #ifndef TESTING
     Serial.println("Invalid frame");
 #endif
     return;
   }
+  memcpy(start_frame_, current_positions_, sizeof(start_frame_));
+  memcpy(target_frame_, new_frame, sizeof(target_frame_));
+  millis_start_ = millis_now;
+  animating_ = true;
+}
+
+void ServoAnimator::ResetAnimation() {
+  animating_ = false;
+  millis_start_ = 0;
+  memset(start_frame_, 0, sizeof(start_frame_));
+  memset(target_frame_, 0, sizeof(target_frame_));
+}
+
+void ServoAnimator::Animate(unsigned long millis_now) {
+  if (!animating_) {
+    //printf("@%lums, not animating\n", millis_now);
+    return;
+  }
+
+#ifndef TESTING
+  if (millis_last_ && millis_now - millis_last_ > 3) {
+    Serial.print("Slow animation: ");
+    Serial.print(millis_now - millis_last_);
+    Serial.print("ms @");
+    Serial.println(millis_now);
+  }
+#endif
+
+  if (millis_last_ == millis_now) {
+    // Already ran at this millis clock, no updates possible.
+    return;
+  }
+  millis_last_ = millis_now;
+
+  bool any_not_done = false;
+  unsigned long millis_elapsed = millis_now - millis_start_;
+
   for (int i = 0; i < kServoCount; ++i) {
-    int angle = 90 + (servo_values[i] + servo_zero_offsets_[i]) * kDirectionMap[i];
+    // Interpolate with smooth curve an angle transition based on
+    // ms_per_degree.
+    int total_angle_motion = target_frame_[i] - start_frame_[i];
+    int abs_total_angle_motion = total_angle_motion;
+    if (abs_total_angle_motion < 0)
+      abs_total_angle_motion = -abs_total_angle_motion;
+    int ms_for_angle_motion = abs_total_angle_motion * ms_per_degree_;
+    float portion_done;
+    if (ms_for_angle_motion == 0) {
+      //printf("@%lums, servo %d: no motion\n", millis_now, i);
+      portion_done = 1;
+    } else {
+      portion_done = (float)millis_elapsed / ms_for_angle_motion;
+      if (portion_done > 1.0) portion_done = 1;
+    }
+    float portion_done_smoothed = (1 - cos(portion_done * M_PI)) / 2;
+    int rounded_angle_motion;
+    if (total_angle_motion > 0)
+      rounded_angle_motion = portion_done_smoothed * total_angle_motion + .5;
+    else
+      rounded_angle_motion = portion_done_smoothed * total_angle_motion - .5;
+    int angle_at_portion = start_frame_[i] + rounded_angle_motion;
+    //printf("@%lums, %d: %d abs motion, %f (%f smoothed) done (%lu/%d), start %d, progress %d, logical angle %d\n", millis_now, i, abs_total_angle_motion, (double)portion_done, (double)portion_done_smoothed, millis_elapsed, ms_for_angle_motion, start_frame_[i], rounded_angle_motion, angle_at_portion);
 #ifndef TESTING
 #if 0
     Serial.print("Servo ");
     Serial.print(i);
     Serial.print(": ");
-    Serial.print(servo_values[i]);
+    Serial.print(new_frame[i]);
     Serial.print(", zeroed ");
     Serial.print(servo_zero_offsets_[i]);
     Serial.print(" so setting to ");
     Serial.println(angle);
 #endif
 #endif
-    servo_[i]->write(angle);
+    WriteServo(i, angle_at_portion);
+    if (portion_done < 1.0)
+      any_not_done = true;
   }
-  //while (!Serial.available()) yield();
-  //Serial.read();
+
+  //printf("At end: %d\n", any_not_done);
+
+  if (!any_not_done) {
+    ResetAnimation();
+  }
 }
