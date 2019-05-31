@@ -90,11 +90,11 @@ $(O)/libs.a:
 	done
 
 $(O)/calibrate.elf: $(O)/calibrate.o $(COMMONOBJS) $(O)/libs.a $(O)/core.a
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^ -Xlinker -Map=$(O)/calibrate.map
 	$(ABINDIR)/avr-size $@
 
 $(BIN).elf: $(O)/mpu_reader.o $(COMMONOBJS) $(O)/libs.a $(O)/core.a
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^ -Xlinker -Map=$(BIN).map
 	$(ABINDIR)/avr-size $@
 
 %.install: %.hex
