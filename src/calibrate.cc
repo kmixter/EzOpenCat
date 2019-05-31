@@ -42,9 +42,9 @@ class MenuObserver {
 
 void UpdateMenu(int cursor, const char* message, const char** options, MenuObserver** observers)
 {
-  Serial.print("\e[1;1H\e[0m\e[1m");
+  Serial.print(F("\e[1;1H\e[0m\e[1m"));
   Serial.println(message);
-  Serial.print("\e[0m");
+  Serial.print(F("\e[0m"));
   int max_strlen = 0;
   for (int i = 0; options[i] != nullptr; ++i) {
     int sl = strlen(options[i]);
@@ -53,25 +53,25 @@ void UpdateMenu(int cursor, const char* message, const char** options, MenuObser
 
   for (int i = 0; options[i] != nullptr; ++i) {
     if (cursor == i)
-      Serial.print("\e[41m");
+      Serial.print(F("\e[41m"));
     else
-      Serial.print("\e[0m");
+      Serial.print(F("\e[0m"));
     Serial.print(options[i]);
     for (int pad = max_strlen - strlen(options[i]); pad > 0; --pad)
-      Serial.print(" ");
+      Serial.print(F(" "));
     if (observers != nullptr) {
       if (observers[i] != nullptr)
         observers[i]->Show();
     }
-    Serial.println("");
+    Serial.println();
   }
-  Serial.print("\e[0m");
+  Serial.print(F("\e[0m"));
 }
 
 int GetSelection(const char* message, const char** options, MenuObserver** observers = nullptr) {
   int cursor = 0;
  
-  Serial.print("\e[2J");
+  Serial.print(F("\e[2J"));
   UpdateMenu(cursor, message, options, observers);
  
   while (true) {
@@ -122,7 +122,7 @@ int GetSelection(const char* message, const char** options, MenuObserver** obser
 }
 
 void ShowByte(int8_t value) {
-  Serial.print("  \e[0m\e[30m\e[47m");
+  Serial.print(F("  \e[0m\e[30m\e[47m"));
   int pad = value < 0 ? 0 : 1;
   int v = abs(value);
   if (v < 10) {
@@ -130,7 +130,7 @@ void ShowByte(int8_t value) {
   } else if (v < 100) {
     pad += 1;
   }
-  while (pad--) Serial.print(" ");
+  while (pad--) Serial.print(F(" "));
   Serial.print(value);
 }
 
@@ -414,7 +414,7 @@ int main() {
 
   // initialize serial communication at 9600 bits per second:
   Serial.begin(57600);
-  Serial.println("Starting...");
+  Serial.println(F("Starting..."));
   delay(300);
 
   s_eeprom_settings.Initialize();

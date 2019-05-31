@@ -117,7 +117,7 @@ void ServoAnimator::SetServoParams(const int8_t* servo_zero_offsets) {
 void ServoAnimator::SetFrame(const int8_t* new_frame, unsigned long millis_now) {
   if (new_frame == nullptr) {
 #ifndef TESTING
-    Serial.println("Invalid frame");
+    Serial.println(F("Invalid frame"));
 #endif
     return;
   }
@@ -230,9 +230,9 @@ void ServoAnimator::Animate(unsigned long millis_now) {
 
 #ifndef TESTING
   if (millis_last_ && millis_now - millis_last_ > 3) {
-    Serial.print("Slow animation: ");
+    Serial.print(F("Slow animation: "));
     Serial.print(millis_now - millis_last_);
-    Serial.print("ms @");
+    Serial.print(F("ms @"));
     Serial.println(millis_now);
   }
 #endif
