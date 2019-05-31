@@ -242,73 +242,49 @@ void CreatePose() {
   s_servo_animator.StartAnimation(kAnimationRest, millis());
 }
 
-void CalibrateMPU() {
-  const char* kChoices[] = {
-    "Back <<",
-    "Continue >>",
-    nullptr
-  };
-
-  Serial.print("Stored gyro correction: ");
+void PrintGyroCorrections() {
   for (int i = 0; i < 3; ++i) {
     Serial.print(s_eeprom_settings.settings().gyro_correction[i]);
-    Serial.print(" ");
+    Serial.print(F(" "));
   }
-  Serial.println("");
-  delay(2000);
+  Serial.println();
+}
 
-  if (!GetSelection("Lay cat completely flat.", kChoices)) return;
+void PrintPitchRollCorrections() {
+  Serial.print(F("pitch: "));
+  Serial.print(s_eeprom_settings.settings().pitch_correction);
+  Serial.print(F(", roll: "));
+  Serial.println(s_eeprom_settings.settings().roll_correction);
+}
 
-  MPU6050 mpu(kMpuI2CAddr, kDt / 1000, 1);
-  mpu.Initialize();
+void DetermineGyroCorrection(MPU6050* mpu, int* gyro_correction) {
+  Serial.println(F("\e[2J\e[1m\e[1;1HPlease wait, finding gyro correction...\e[0m\n"));
 
-  Serial.println("\e[2J\e[1m\e[1;1HPlease wait...\e[0m\n");
-
-  int accel_correction[3] = {0};
-  int gyro_correction[3] = {0};
+  Serial.print(F("\e[3;1HStored gyro correction: "));
+  PrintGyroCorrections();
 
   while (true) {
-    Serial.print("\e[3;1Haccl correction: ");
-    for (int i = 0; i < 3; ++i) {
-      Serial.print(accel_correction[i]);
-      Serial.print(" ");
-    }
-    Serial.println("");
-    Serial.print("gyro correction: ");
-    for (int i = 0; i < 3; ++i) {
-      Serial.print(gyro_correction[i]);
-      Serial.print(" ");
-    }
-    Serial.println("");
-
-    long sum_accel[3] = {0};
     long sum_gyro[3] = {0};
     const int kSamples = 100;
     for (int count = 0; count < kSamples; ++count) {
       int16_t accel[3];
       int16_t gyro[3];
-      mpu.ReadBoth(accel, gyro);
+      mpu->ReadBoth(accel, gyro);
 
       if (count % 10 == 0) {
-        Serial.print("\e[6;1H");
-        Serial.print("accl: "); Serial.print(accel[0]); Serial.print(" "); Serial.print(accel[1]); Serial.print(" "); Serial.println(accel[2]);
-        Serial.print("gyro: "); Serial.print(gyro[1]); Serial.print(":"); Serial.println(gyro[0]);
+        Serial.print(F("\e[6;1H"));
+        Serial.print(F("gyro: ")); Serial.print(gyro[1]); Serial.print(F(" ")); Serial.println(gyro[0]);
 
-        Serial.print("perc: ");
+        Serial.print(F("perc: "));
         Serial.print(count * 100 / kSamples);
-        Serial.println("%  ");
+        Serial.println(F("%  "));
       }
-      for (int i = 0; i < 3; ++i)
-        sum_accel[i] += accel[i];
       for (int i = 0; i < 3; ++i)
         sum_gyro[i] += gyro[i];
       delay(kDt);
     }
 
-    int next_accel_correction[3];
     int next_gyro_correction[3];
-    for (int i = 0; i < 3; ++i)
-      next_accel_correction[i] = -sum_accel[i] / kSamples;
     for (int i = 0; i < 3; ++i)
       next_gyro_correction[i] = -sum_gyro[i] / kSamples;
 
@@ -317,17 +293,101 @@ void CalibrateMPU() {
     for (int i = 0; i < 3; ++i)
       abs_gyro_diff += abs(next_gyro_correction[i] - gyro_correction[i]);
 
-    memcpy(accel_correction, next_accel_correction, sizeof(next_accel_correction));
     memcpy(gyro_correction, next_gyro_correction, sizeof(next_gyro_correction));
 
     if (abs_gyro_diff <= kSettleGyroDiff)
       break;
   }
+}
+
+void DeterminePitchRollCorrection(MPU6050* mpu, const int* gyro_correction,
+                                  int* pitch_roll_correction) {
+  Serial.println(F("\e[2J\e[1m\e[1;1HPlease wait, finding pitch/roll correction...\e[0m\n"));
+
+  mpu->SetGyroCorrection(gyro_correction);
+
+  Serial.print(F("\e[3;1HStored pitch/roll correction: "));
+  PrintPitchRollCorrections();
+
+  const int kPitchRollTolerance = 2;
+  while (true) {
+    int sum_pitch_roll[2] = {0};
+    const int kSamples = 100;
+    for (int count = 0; count < kSamples; ++count) {
+      int16_t accel[3];
+      int16_t gyro[3];
+      mpu->ReadBoth(accel, gyro);
+
+      float pitch, roll;
+      mpu->ComputeFilteredPitchRoll(accel, gyro, &pitch, &roll);
+
+      if (count % 10 == 0) {
+        Serial.print(F("\e[6;1H"));
+        Serial.print(F("accel: pitch "));
+        Serial.print(pitch);
+        Serial.print(F(" roll: "));
+        Serial.print(roll);
+      }
+      sum_pitch_roll[0] += pitch;
+      sum_pitch_roll[1] += roll;
+      delay(kDt);
+    }
+
+    int next_pitch_roll_correction[2];
+    bool all_in_tolerance = true;
+    for (int i = 0; i < 2; ++i) {
+      next_pitch_roll_correction[i] = -sum_pitch_roll[i] / kSamples;
+      if (abs(next_pitch_roll_correction[i] - pitch_roll_correction[i]) >
+            kPitchRollTolerance) {
+        all_in_tolerance = false;
+      }
+    }
+    memcpy(pitch_roll_correction, next_pitch_roll_correction,
+           sizeof(next_pitch_roll_correction));
+
+    if (all_in_tolerance)
+      break;
+  }
+}
+
+void CalibrateMPU() {
+  const char* kChoices[] = {
+    "Back <<",
+    "Continue >>",
+    nullptr
+  };
+
+  if (!GetSelection("Lay cat completely flat.", kChoices)) return;
+
+  MPU6050 mpu(kMpuI2CAddr, kDt / 1000, 1);
+  mpu.Initialize();
+
+  int gyro_correction[3] = {0};
+  DetermineGyroCorrection(&mpu, gyro_correction);
+
+  int pitch_roll_correction[2] = {0};
+  DeterminePitchRollCorrection(&mpu, gyro_correction, pitch_roll_correction);
 
   for (int i = 0; i < 3; ++i)
     s_eeprom_settings.settings().gyro_correction[i] = gyro_correction[i];
 
+  s_eeprom_settings.settings().pitch_correction = pitch_roll_correction[0];
+  s_eeprom_settings.settings().roll_correction = pitch_roll_correction[1];
+
+  Serial.println(F("\e[2J\e[1m\e[1;1HPress any key...\e[0m\n"));
+
   s_eeprom_settings.Store();
+
+  Serial.println(F("\e[3;1HFound gyro corrections:"));
+  PrintGyroCorrections();
+
+  Serial.println(F("\e[5;1HFound pitch/roll corrections:"));
+  PrintPitchRollCorrections();
+
+  while (!Serial.available()) {
+    delay(1000);
+  }
+  Serial.read();
 }
 
 void SetPose() {
@@ -416,6 +476,12 @@ int main() {
   Serial.begin(57600);
   Serial.println(F("Starting..."));
   delay(300);
+
+  char* x = (char*)malloc(4);
+  Serial.println((long)&x, HEX);
+  if (x == nullptr) {
+    Serial.println("it's null"); delay(1000);
+  }
 
   s_eeprom_settings.Initialize();
   s_servo_animator.Initialize();

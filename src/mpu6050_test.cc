@@ -46,3 +46,39 @@ TEST_F(MpuTest, ComputeFilteredPitchRollRolled) {
 	EXPECT_NEAR(45, roll_, kEpsilon);
 	EXPECT_NEAR(0, pitch_, kEpsilon);
 }
+
+TEST_F(MpuTest, BiasedGyroAffectsResults) {
+  gyro_[0] = 300;
+  gyro_[1] = 300;
+  accel_[2] = k1G;
+  RunSameManyTimes();
+  EXPECT_NE(0, roll_);
+  EXPECT_NE(0, pitch_);
+}
+
+TEST_F(MpuTest, GyroCorrection) {
+  int gyro_correction[3] = { -300, -300, 0 };
+  gyro_[0] = 300;
+  gyro_[1] = 300;
+  accel_[2] = k1G;
+  mpu_.SetGyroCorrection(gyro_correction);
+  RunSameManyTimes();
+  EXPECT_EQ(0, roll_);
+  EXPECT_EQ(0, pitch_);
+}
+
+TEST_F(MpuTest, PitchCorrections) {
+  accel_[0] = accel_[2] = k1G;
+  mpu_.SetPitchRollCorrection(-45, 0);
+  RunSameManyTimes();
+  EXPECT_NEAR(0, pitch_, kEpsilon);
+  EXPECT_NEAR(0, roll_, kEpsilon);
+}
+
+TEST_F(MpuTest, RollCorrections) {
+  accel_[1] = accel_[2] = k1G;
+  mpu_.SetPitchRollCorrection(0, -45);
+  RunSameManyTimes();
+  EXPECT_NEAR(0, pitch_, kEpsilon);
+  EXPECT_NEAR(0, roll_, kEpsilon);
+}

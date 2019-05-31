@@ -11,6 +11,8 @@ struct EepromSettings {
   int8_t servo_zero_offset[kNumServos];
 
   int16_t gyro_correction[3];
+  int16_t pitch_correction;
+  int16_t roll_correction;
 };
 
 class EepromSettingsManager {

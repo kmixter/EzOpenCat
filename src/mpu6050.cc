@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef TESTING
 #include <Wire.h>
@@ -20,6 +21,10 @@ void MPU6050::Initialize() {
   Wire.write(0);  // Wake up
   Wire.endTransmission(true);
 #endif  // TESTING
+}
+
+void MPU6050::SetGyroCorrection(const int* gyro_corrections) {
+  memcpy(gyro_corrections_, gyro_corrections, sizeof(gyro_corrections_));
 }
 
 void MPU6050::ReadBoth(int16_t* accel, int16_t* gyro) {
@@ -58,9 +63,12 @@ void MPU6050::ComputeFilteredPitchRoll(const int16_t* accel, const int16_t* gyro
 	//  /
 	//
 	// 0 (head of cat)
-
-  *pitch -= ((float)gyro[1] / kGyroscopeSensitivity) * sampling_;
-  *roll += ((float)gyro[0] / kGyroscopeSensitivity) * sampling_;
+  int corrected_gyro[2] = {
+    gyro[0] + gyro_corrections_[0],
+    gyro[1] + gyro_corrections_[1]
+  };
+  last_pitch_ -= ((float)corrected_gyro[1] / kGyroscopeSensitivity) * sampling_;
+  last_roll_ += ((float)corrected_gyro[0] / kGyroscopeSensitivity) * sampling_;
 
   float acceleration_magnitude = abs(accel[0]) + abs(accel[1]) + abs(accel[2]);
   if (acceleration_magnitude < kAccelerometerSensitivity ||
@@ -79,7 +87,10 @@ void MPU6050::ComputeFilteredPitchRoll(const int16_t* accel, const int16_t* gyro
 
   float acceleration_pitch = atan2f(float(accel[0]), float(accel[2])) * 180 / M_PI;
   float acceleration_roll = atan2f(float(accel[1]), float(accel[2])) * 180 / M_PI;
-  *pitch = *pitch * alpha_ + acceleration_pitch * (1 - alpha_);
-  *roll = *roll * alpha_ + acceleration_roll * (1 - alpha_);
+  last_pitch_ = last_pitch_ * alpha_ + acceleration_pitch * (1 - alpha_);
+  last_roll_ = last_roll_ * alpha_ + acceleration_roll * (1 - alpha_);
+
+  *pitch = last_pitch_ + pitch_correction_;
+  *roll = last_roll_ + roll_correction_;
 }
 
