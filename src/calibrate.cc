@@ -7,11 +7,10 @@
 static const int kMpuI2CAddr = 0x68;
 static const float kDt = 10;
 
-// Once gyro is differing by only 2 between successive runs, we're happy.
-static const int kSettleGyroDiff = 2;
-
-EepromSettingsManager s_eeprom_settings;
-ServoAnimator s_servo_animator;
+static EepromSettingsManager s_eeprom_settings;
+static ServoAnimator s_servo_animator;
+static MPU6050 s_mpu(kMpuI2CAddr, kDt / 1000, 1);
+bool balance_enabled;
 
 static const char* kServosNames[] = {
   "Head",
@@ -82,8 +81,10 @@ int GetSelection(const char* message, const char** options, MenuObserver** obser
     switch (b) {
       case '\r':
         if (observers != nullptr && observers[cursor] != nullptr) {
-          if (!observers[cursor]->HandleSelection())
+          if (!observers[cursor]->HandleSelection()) {
+            UpdateMenu(cursor, message, options, observers);
             break;
+          }
         }
         return cursor;
       case '\e':
@@ -257,7 +258,10 @@ void PrintPitchRollCorrections() {
   Serial.println(s_eeprom_settings.settings().roll_correction);
 }
 
-void DetermineGyroCorrection(MPU6050* mpu, int* gyro_correction) {
+void DetermineGyroCorrection(int* gyro_correction) {
+  // Once gyro is differing by only 2 between successive runs, we're happy.
+  const int kSettleGyroDiff = 2;
+
   Serial.println(F("\e[2J\e[1m\e[1;1HPlease wait, finding gyro correction...\e[0m\n"));
 
   Serial.print(F("\e[3;1HStored gyro correction: "));
@@ -269,7 +273,7 @@ void DetermineGyroCorrection(MPU6050* mpu, int* gyro_correction) {
     for (int count = 0; count < kSamples; ++count) {
       int16_t accel[3];
       int16_t gyro[3];
-      mpu->ReadBoth(accel, gyro);
+      s_mpu.ReadBoth(accel, gyro);
 
       if (count % 10 == 0) {
         Serial.print(F("\e[6;1H"));
@@ -300,14 +304,16 @@ void DetermineGyroCorrection(MPU6050* mpu, int* gyro_correction) {
   }
 }
 
-void DeterminePitchRollCorrection(MPU6050* mpu, const int* gyro_correction,
+void DeterminePitchRollCorrection(const int* gyro_correction,
                                   int* pitch_roll_correction) {
   Serial.println(F("\e[2J\e[1m\e[1;1HPlease wait, finding pitch/roll correction...\e[0m\n"));
 
-  mpu->SetGyroCorrection(gyro_correction);
+  s_mpu.SetGyroCorrection(gyro_correction);
 
   Serial.print(F("\e[3;1HStored pitch/roll correction: "));
   PrintPitchRollCorrections();
+
+  s_mpu.SetPitchRollCorrection(0, 0);
 
   const int kPitchRollTolerance = 2;
   while (true) {
@@ -316,10 +322,10 @@ void DeterminePitchRollCorrection(MPU6050* mpu, const int* gyro_correction,
     for (int count = 0; count < kSamples; ++count) {
       int16_t accel[3];
       int16_t gyro[3];
-      mpu->ReadBoth(accel, gyro);
+      s_mpu.ReadBoth(accel, gyro);
 
       float pitch, roll;
-      mpu->ComputeFilteredPitchRoll(accel, gyro, &pitch, &roll);
+      s_mpu.ComputeFilteredPitchRoll(accel, gyro, &pitch, &roll);
 
       if (count % 10 == 0) {
         Serial.print(F("\e[6;1H"));
@@ -359,14 +365,11 @@ void CalibrateMPU() {
 
   if (!GetSelection("Lay cat completely flat.", kChoices)) return;
 
-  MPU6050 mpu(kMpuI2CAddr, kDt / 1000, 1);
-  mpu.Initialize();
-
   int gyro_correction[3] = {0};
-  DetermineGyroCorrection(&mpu, gyro_correction);
+  DetermineGyroCorrection(gyro_correction);
 
   int pitch_roll_correction[2] = {0};
-  DeterminePitchRollCorrection(&mpu, gyro_correction, pitch_roll_correction);
+  DeterminePitchRollCorrection(gyro_correction, pitch_roll_correction);
 
   for (int i = 0; i < 3; ++i)
     s_eeprom_settings.settings().gyro_correction[i] = gyro_correction[i];
@@ -393,6 +396,7 @@ void CalibrateMPU() {
 void SetPose() {
   const char* kPoseSelections[] = {
     "Back <<",
+    "Balancing",
     "Rest Pose",
     "Calibrate Pose",
     "Sleep",
@@ -446,21 +450,41 @@ void SetPose() {
     int current_frame_ = 0;
   };
 
+  class BalanceMenu : public MenuObserver {
+   public:
+    BalanceMenu(bool initial) : value_(initial) {}
+
+    void Show() override {
+      Serial.print(F("  \e[0m\e[30m\e[47m"));
+      Serial.print(value_ ? F(" true  ") : F(" false "));
+      Serial.print(F("\e[0m"));
+    }
+
+    void HandleKey(char key) override {}
+
+    bool HandleSelection() override {
+      value_ = !value_;
+      return false;
+    }
+    bool value_ = false;
+  };
+
   s_servo_animator.Attach();
 
-  MenuObserver** observers = new MenuObserver*[7];
+  MenuObserver** observers = new MenuObserver*[8];
   observers[0] = nullptr;
-  observers[1] = new PoseMenu(kAnimationRest);
-  observers[2] = new PoseMenu(kAnimationCalibrationPose);
-  observers[3] = new PoseMenu(kAnimationSleep);
-  observers[4] = new PoseMenu(kAnimationBalance);
-  observers[5] = new PoseMenu(kAnimationSit);
-  observers[6] = new PoseMenu(kAnimationWalk);
+  observers[1] = new BalanceMenu(false);
+  observers[2] = new PoseMenu(kAnimationRest);
+  observers[3] = new PoseMenu(kAnimationCalibrationPose);
+  observers[4] = new PoseMenu(kAnimationSleep);
+  observers[5] = new PoseMenu(kAnimationBalance);
+  observers[6] = new PoseMenu(kAnimationSit);
+  observers[7] = new PoseMenu(kAnimationWalk);
 
   // Only selection returned by GetSelection will be back.
   GetSelection("Pick one:", kPoseSelections, observers);
 
-  for (int i = 1; i < 7; ++i) {
+  for (int i = 1; i < 8; ++i) {
     delete observers[i];
   }
 
@@ -477,15 +501,13 @@ int main() {
   Serial.println(F("Starting..."));
   delay(300);
 
-  char* x = (char*)malloc(4);
-  Serial.println((long)&x, HEX);
-  if (x == nullptr) {
-    Serial.println("it's null"); delay(1000);
-  }
-
   s_eeprom_settings.Initialize();
   s_servo_animator.Initialize();
   s_servo_animator.SetServoParams(&s_eeprom_settings.settings().servo_zero_offset[0]);
+  s_mpu.Initialize();
+  s_mpu.SetGyroCorrection(s_eeprom_settings.settings().gyro_correction);
+  s_mpu.SetPitchRollCorrection(s_eeprom_settings.settings().pitch_correction,
+                               s_eeprom_settings.settings().roll_correction);
 
   while (true) {
     const char* kTopMenuSelections[] = {
@@ -515,7 +537,8 @@ int main() {
 
 
 void yield() {
-  s_servo_animator.Animate(millis());
+  unsigned long millis_now = millis();
+  s_servo_animator.Animate(millis_now);
 
   if (serialEventRun) {
     serialEventRun();
