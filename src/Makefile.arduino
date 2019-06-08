@@ -3,7 +3,7 @@ ABINDIR=$(ADIR)/hardware/tools/avr/bin
 AETCDIR=$(ADIR)/hardware/tools/avr/etc
 ALIBDIR=$(ADIR)/hardware/arduino/avr/libraries
 ATLIBDIR=$(ADIR)/libraries
-PKG=mpu_reader
+PKG=main
 O=out/arduino
 BIN=$(O)/$(PKG)
 COMMONOBJS=$(O)/mpu6050.o $(O)/remote_control.o \
@@ -93,7 +93,7 @@ $(O)/calibrate.elf: $(O)/calibrate.o $(COMMONOBJS) $(O)/libs.a $(O)/core.a
 	$(CC) $(LDFLAGS) -o $@ $^ -Xlinker -Map=$(O)/calibrate.map
 	$(ABINDIR)/avr-size $@
 
-$(BIN).elf: $(O)/mpu_reader.o $(COMMONOBJS) $(O)/libs.a $(O)/core.a
+$(BIN).elf: $(O)/main.o $(COMMONOBJS) $(O)/libs.a $(O)/core.a
 	$(CC) $(LDFLAGS) -o $@ $^ -Xlinker -Map=$(BIN).map
 	$(ABINDIR)/avr-size $@
 

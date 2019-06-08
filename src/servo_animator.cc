@@ -6,6 +6,7 @@
 #else
 #define PROGMEM
 #define pgm_read_int8(_a) (*(_a))
+#include <cstdlib>
 #include <stdio.h>
 #endif  // TESTING
 
@@ -114,6 +115,36 @@ void ServoAnimator::SetServoParams(const int8_t* servo_zero_offsets) {
   servo_zero_offsets_ = servo_zero_offsets;
 }
 
+void ServoAnimator::ComputeBalancedFrame() {
+  memcpy(target_balanced_frame_, target_unbalanced_frame_, sizeof(target_balanced_frame_));
+  target_balanced_frame_[0] = AngleAdd(target_unbalanced_frame_[0], pitch_);
+  target_balanced_frame_[1] = AngleAdd(target_unbalanced_frame_[1], -roll_);
+}
+
+void ServoAnimator::HandlePitchRoll(int pitch, int roll, unsigned long millis_now) {
+  bool any_change = false;
+  if (abs(pitch_ - pitch) >= 10) {
+    pitch_ = pitch;
+    any_change = true;
+  }
+  if (abs(roll_ - roll) >= 10) {
+    roll_ = roll;
+    any_change = true;
+  }
+  if (any_change) {
+    SetFrame(target_unbalanced_frame_, millis_now);
+  }
+}
+
+int ServoAnimator::AngleAdd(int a1, int a2) {
+  int result = a1 + a2;
+  if (result < -127)
+    return -127;
+  if (result > 128)
+    return 128;
+  return result;
+}
+
 void ServoAnimator::SetFrame(const int8_t* new_frame, unsigned long millis_now) {
   if (new_frame == nullptr) {
 #ifndef TESTING
@@ -122,7 +153,8 @@ void ServoAnimator::SetFrame(const int8_t* new_frame, unsigned long millis_now) 
     return;
   }
   memcpy(start_frame_, current_positions_, sizeof(start_frame_));
-  memcpy(target_frame_, new_frame, sizeof(target_frame_));
+  memcpy(target_unbalanced_frame_, new_frame, sizeof(target_unbalanced_frame_));
+  ComputeBalancedFrame();
   millis_start_ = millis_now;
   animating_ = true;
 }
@@ -131,7 +163,7 @@ void ServoAnimator::ResetAnimation() {
   animating_ = false;
   millis_start_ = 0;
   memset(start_frame_, 0, sizeof(start_frame_));
-  memset(target_frame_, 0, sizeof(target_frame_));
+  memset(target_balanced_frame_, 0, sizeof(target_balanced_frame_));
   animation_sequence_ = kAnimationNone;
   animation_sequence_frame_number_ = 0;
 }
@@ -158,7 +190,7 @@ void ServoAnimator::InterpolateToFrame(unsigned long millis_now,
   for (int i = 0; i < kServoCount; ++i) {
     // Interpolate with smooth curve an angle transition based on
     // ms_per_degree.
-    int total_angle_motion = target_frame_[i] - start_frame_[i];
+    int total_angle_motion = target_balanced_frame_[i] - start_frame_[i];
     int abs_total_angle_motion = total_angle_motion;
     if (abs_total_angle_motion < 0)
       abs_total_angle_motion = -abs_total_angle_motion;

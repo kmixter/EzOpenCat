@@ -75,6 +75,7 @@ class ServoAnimator {
   int animation_sequence_frame_number() const {
     return animation_sequence_frame_number_;
   }
+  void HandlePitchRoll(int pitch, int roll, unsigned long millis_now);
 
  private:
   void ResetAnimation();
@@ -84,12 +85,15 @@ class ServoAnimator {
     return 90 + (angle + servo_zero_offsets_[servo]) * kDirectionMap[servo];
   }
   void InterpolateToFrame(unsigned long millis_now, bool* done);
+  void ComputeBalancedFrame();
+  int AngleAdd(int a1, int a2);
 
   bool animating_ = false;
   unsigned long millis_last_ = 0;
   unsigned long millis_start_ = 0;
   int8_t start_frame_[kServoCount];
-  int8_t target_frame_[kServoCount];
+  int8_t target_unbalanced_frame_[kServoCount];
+  int8_t target_balanced_frame_[kServoCount];
   int animation_sequence_ = kAnimationNone;
   int animation_sequence_frame_number_ = 0;
 
@@ -102,6 +106,8 @@ class ServoAnimator {
 #endif  // TESTING
   static const int kDirectionMap[kServoCount];
   Servo* servo_[kServoCount];
+  int pitch_ = 0;
+  int roll_ = 0;
 };
 
 #endif  // _SERVO_ANIMATOR_H

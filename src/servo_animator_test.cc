@@ -152,7 +152,7 @@ TEST_F(ServoAnimatorTest, FrameInterpolationIsSmooth) {
   }
 }
 
-TEST_F(ServoAnimatorTest, AnimationCalibrateCompletesAndStaysAttached) {
+TEST_F(ServoAnimatorTest, AnimationCalibrationPoseCompletesAndStaysAttached) {
   animator_.StartAnimation(kAnimationCalibrationPose, 0);
   animator_.Animate(10000);
   EXPECT_EQ(90, animator_.servo_[kServoHead]->value);
@@ -180,4 +180,23 @@ TEST_F(ServoAnimatorTest, AnimationWalkLoops) {
     int next_frame = (i + 1) % 43;
     EXPECT_EQ(next_frame, animator_.animation_sequence_frame_number());
   }
+}
+
+TEST_F(ServoAnimatorTest, AnimationCalibrationPoseBalances) {
+  animator_.StartAnimation(kAnimationCalibrationPose, 0);
+
+  animator_.HandlePitchRoll(-10, 0, 0);
+  animator_.Animate(10000);
+  EXPECT_EQ(80, animator_.servo_[kServoHead]->value);
+  EXPECT_EQ(90, animator_.servo_[kServoNeck]->value);
+
+  animator_.HandlePitchRoll(0, 20, 10000);
+  animator_.Animate(20000);
+  EXPECT_EQ(90, animator_.servo_[kServoHead]->value);
+  EXPECT_EQ(110, animator_.servo_[kServoNeck]->value);
+
+  animator_.HandlePitchRoll(0, 0, 20000);
+  animator_.Animate(30000);
+  EXPECT_EQ(90, animator_.servo_[kServoHead]->value);
+  EXPECT_EQ(90, animator_.servo_[kServoNeck]->value);
 }

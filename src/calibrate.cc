@@ -10,7 +10,7 @@ static const float kDt = 10;
 static EepromSettingsManager s_eeprom_settings;
 static ServoAnimator s_servo_animator;
 static MPU6050 s_mpu(kMpuI2CAddr, kDt / 1000, 1);
-bool balance_enabled;
+bool s_balance_enabled;
 
 static const char* kServosNames[] = {
   "Head",
@@ -393,6 +393,25 @@ void CalibrateMPU() {
   Serial.read();
 }
 
+void SetBalanceEnabled(bool enabled) {
+  s_balance_enabled = enabled;
+  if (!enabled)
+    s_servo_animator.HandlePitchRoll(0, 0, millis());
+}
+
+void StreamMPU() {
+  SetBalanceEnabled(false);
+  while (!Serial.available()) {
+    int16_t accel[3];
+    int16_t gyro[3];
+    s_mpu.ReadBoth(accel, gyro);
+    float pitch, roll;
+    s_mpu.ComputeFilteredPitchRoll(accel, gyro, &pitch, &roll);
+    delay(kDt);
+  }
+  Serial.read();
+}
+
 void SetPose() {
   const char* kPoseSelections[] = {
     "Back <<",
@@ -452,18 +471,18 @@ void SetPose() {
 
   class BalanceMenu : public MenuObserver {
    public:
-    BalanceMenu(bool initial) : value_(initial) {}
+    BalanceMenu() {}
 
     void Show() override {
       Serial.print(F("  \e[0m\e[30m\e[47m"));
-      Serial.print(value_ ? F(" true  ") : F(" false "));
+      Serial.print(s_balance_enabled ? F(" true  ") : F(" false "));
       Serial.print(F("\e[0m"));
     }
 
     void HandleKey(char key) override {}
 
     bool HandleSelection() override {
-      value_ = !value_;
+      SetBalanceEnabled(!s_balance_enabled);
       return false;
     }
     bool value_ = false;
@@ -473,7 +492,7 @@ void SetPose() {
 
   MenuObserver** observers = new MenuObserver*[8];
   observers[0] = nullptr;
-  observers[1] = new BalanceMenu(false);
+  observers[1] = new BalanceMenu();
   observers[2] = new PoseMenu(kAnimationRest);
   observers[3] = new PoseMenu(kAnimationCalibrationPose);
   observers[4] = new PoseMenu(kAnimationSleep);
@@ -504,6 +523,7 @@ int main() {
   s_eeprom_settings.Initialize();
   s_servo_animator.Initialize();
   s_servo_animator.SetServoParams(&s_eeprom_settings.settings().servo_zero_offset[0]);
+  s_servo_animator.set_ms_per_degree(2);
   s_mpu.Initialize();
   s_mpu.SetGyroCorrection(s_eeprom_settings.settings().gyro_correction);
   s_mpu.SetPitchRollCorrection(s_eeprom_settings.settings().pitch_correction,
@@ -513,6 +533,7 @@ int main() {
     const char* kTopMenuSelections[] = {
       "Calibrate Servos",
       "Calibrate MPU",
+      "Stream MPU",
       "Set Pose",
       "Create pose",
       nullptr
@@ -526,19 +547,32 @@ int main() {
         CalibrateMPU();
         break;
       case 2:
-        SetPose();
+        StreamMPU();
         break;
       case 3:
+        SetPose();
+        break;
+      case 4:
         CreatePose();
         break;
     }
   }
 }
 
-
 void yield() {
   unsigned long millis_now = millis();
   s_servo_animator.Animate(millis_now);
+
+  static long millis_last_mpu = 0;
+  if (s_balance_enabled && millis_now - millis_last_mpu >= kDt) {
+    millis_last_mpu = millis_now;
+    int16_t accel[3];
+    int16_t gyro[3];
+    s_mpu.ReadBoth(accel, gyro);
+    float pitch, roll;
+    s_mpu.ComputeFilteredPitchRoll(accel, gyro, &pitch, &roll);
+    s_servo_animator.HandlePitchRoll(pitch, roll, millis_now);
+  }
 
   if (serialEventRun) {
     serialEventRun();
