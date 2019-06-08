@@ -92,7 +92,7 @@ class ServoAnimator {
   unsigned long millis_last_ = 0;
   unsigned long millis_start_ = 0;
   int8_t start_frame_[kServoCount];
-  int8_t target_unbalanced_frame_[kServoCount];
+  int8_t target_unbalanced_frame_[kServoCount] = {0};
   int8_t target_balanced_frame_[kServoCount];
   int animation_sequence_ = kAnimationNone;
   int animation_sequence_frame_number_ = 0;

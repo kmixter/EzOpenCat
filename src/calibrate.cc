@@ -407,6 +407,9 @@ void StreamMPU() {
     s_mpu.ReadBoth(accel, gyro);
     float pitch, roll;
     s_mpu.ComputeFilteredPitchRoll(accel, gyro, &pitch, &roll);
+    Serial.print((int)pitch);
+    Serial.print(F("\t"));
+    Serial.println((int)roll);
     delay(kDt);
   }
   Serial.read();
