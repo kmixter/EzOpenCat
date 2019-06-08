@@ -22,6 +22,9 @@ class MPU6050 {
   }
   void SetGyroCorrection(const int* gyro_corrections);
 
+#ifndef TESTING
+ private:
+#endif
   int addr_;
   float sampling_;
   float alpha_;
