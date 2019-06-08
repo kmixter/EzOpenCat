@@ -42,28 +42,38 @@ TEST_F(MpuTest, Alpha) {
 }
 
 TEST_F(MpuTest, SingleCallFiltering) {
-  mpu_.reset(new MPU6050(0, .01, 1));
+  const float kIntEpsilon = .5;
   accel_[0] = accel_[2] = k1G;
+  mpu_->ComputeFilteredPitchRoll(accel_, gyro_, &pitch_, &roll_);
   mpu_->ComputeFilteredPitchRoll(accel_, gyro_, &pitch_, &roll_);
   // Gyro reading 0, history is 0, 0. So first call result only based
   // on alpha weighting portion of result coming from Gyros, which with
   // will be 45 degrees pitched.
-  EXPECT_NEAR(0, roll_, kEpsilon);
-  EXPECT_NEAR(.99 * 45, pitch_, kEpsilon);
+  EXPECT_NEAR(0, roll_, kIntEpsilon);
+  float expect_pitch = .0196 * 45 * .9803 + .0196 * 45;
+  EXPECT_NEAR(2, expect_pitch, kIntEpsilon);
+  EXPECT_NEAR(expect_pitch, pitch_, kIntEpsilon);
 
   accel_[0] = 0;
   mpu_->ComputeFilteredPitchRoll(accel_, gyro_, &pitch_, &roll_);
-  EXPECT_NEAR(0, roll_, kEpsilon);
-  EXPECT_NEAR(.99 * 45 * .0099, pitch_, kEpsilon);
+
+  expect_pitch = expect_pitch * .9803;
+  EXPECT_NEAR(2, expect_pitch, kIntEpsilon);
+  EXPECT_EQ(0, roll_);
+  EXPECT_NEAR(expect_pitch, pitch_, kIntEpsilon);
 
   // Gyro is a 16b signed number where 32768 is 500/s of rotation.
-  gyro_[0] = 1966;  // 30 degrees/s
-  gyro_[1] = 3932;  // 60 degrees/s
+  gyro_[0] = 19660;  // 300 degrees/s
+  gyro_[1] = 26214;  // 400 degrees/s
   mpu_->ComputeFilteredPitchRoll(accel_, gyro_, &pitch_, &roll_);
   // Because sampling rate is 1s, we assume we have rotated a full 30 degrees
   // on roll and 60 degrees on pitch, but this is affected by alpha.
-  EXPECT_NEAR(30 * .0099, roll_, kEpsilon);
-  EXPECT_NEAR(.99 * 45 * .0099 * .0099 - 60 * .0099, pitch_, kEpsilon);
+  float expect_roll = 300 * .01 * .9802;
+  EXPECT_NEAR(3, expect_roll, kIntEpsilon);
+  EXPECT_NEAR(expect_roll, roll_, kIntEpsilon);
+  expect_pitch -= 400 * .01 * .9802;
+  EXPECT_NEAR(-2, expect_pitch, kIntEpsilon);
+  EXPECT_NEAR(expect_pitch, pitch_, kIntEpsilon);
 }
 
 TEST_F(MpuTest, ComputeFilteredPitchRollDown) {
