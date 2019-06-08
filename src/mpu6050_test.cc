@@ -3,6 +3,7 @@
 
 const float k1G = 1 << 14;
 const float kEpsilon = .01;
+static const float kTau = 500;
 static const float kDt = 10;
 
 class MpuTest : public testing::Test {
@@ -10,11 +11,11 @@ class MpuTest : public testing::Test {
   MpuTest() {}
 
   void SetUp() override {
-    mpu_.reset(new MPU6050(0, kDt / 1000, 1));
+    mpu_.reset(new MPU6050(0, kTau/1000, kDt / 1000));
   }
 
   void RunSameManyTimes() {
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < kTau/kDt * 100; ++i) {
       mpu_->ComputeFilteredPitchRoll(accel_, gyro_, &pitch_, &roll_);
       //printf("%d: %f, %f\n", i, pitch_, roll_);
     }
@@ -27,7 +28,21 @@ class MpuTest : public testing::Test {
   float pitch_ = 0;
 };
 
+TEST_F(MpuTest, Alpha) {
+  // Sampling at 1s but we want to be mostly showing accelerometer after
+  // 10ms (this was an early incorrect setting for the library). Alpha
+  // is weighting so that almost nothing comes from the gyroscope.
+  mpu_.reset(new MPU6050(0, .01, 1));
+  EXPECT_NEAR(mpu_->alpha_, .0099, kEpsilon);
+
+  // Sampling at 10ms with filter mostly coming from accelerometer after
+  // 500ms.
+  mpu_.reset(new MPU6050(0, .5, .01));
+  EXPECT_NEAR(mpu_->alpha_, .98, kEpsilon);
+}
+
 TEST_F(MpuTest, SingleCallFiltering) {
+  mpu_.reset(new MPU6050(0, .01, 1));
   accel_[0] = accel_[2] = k1G;
   mpu_->ComputeFilteredPitchRoll(accel_, gyro_, &pitch_, &roll_);
   // Gyro reading 0, history is 0, 0. So first call result only based
@@ -71,13 +86,6 @@ TEST_F(MpuTest, ComputeFilteredPitchRollRolled) {
   RunSameManyTimes();
   EXPECT_NEAR(45, roll_, kEpsilon);
   EXPECT_NEAR(0, pitch_, kEpsilon);
-}
-
-TEST_F(MpuTest, Alpha) {
-  EXPECT_NEAR(mpu_->alpha_, .0099, kEpsilon);
-
-  mpu_.reset(new MPU6050(0, .5, .1));
-  EXPECT_NEAR(mpu_->alpha_, .833, kEpsilon);
 }
 
 TEST_F(MpuTest, BiasedGyroAffectsResults) {

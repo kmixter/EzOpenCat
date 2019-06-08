@@ -6,10 +6,11 @@
 
 static const int kMpuI2CAddr = 0x68;
 static const float kDt = 10;
+static const float kTau = 500;
 
 static EepromSettingsManager s_eeprom_settings;
 static ServoAnimator s_servo_animator;
-static MPU6050 s_mpu(kMpuI2CAddr, kDt / 1000, 1);
+static MPU6050 s_mpu(kMpuI2CAddr, kTau / 1000, kDt / 1000);
 bool s_balance_enabled;
 
 static const char* kServosNames[] = {
