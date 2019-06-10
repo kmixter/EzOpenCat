@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 
-static const char kEepromSignature[] = "eM";
+static const char kEepromSignature[] = "eM1";
 
 void EepromSettingsManager::Initialize() {
   EEPROM.get(0, settings_);

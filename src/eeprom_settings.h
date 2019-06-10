@@ -6,9 +6,11 @@
 static const int kNumServos = 11;
 
 struct EepromSettings {
-  uint8_t signature[2];
+  uint8_t signature[3];
 
   int8_t servo_zero_offset[kNumServos];
+  int8_t servo_upper_extents[kNumServos];
+  int8_t servo_lower_extents[kNumServos];
 
   int16_t gyro_correction[3];
   int16_t pitch_correction;

@@ -11,7 +11,7 @@ static const float kTau = 500;
 static EepromSettingsManager s_eeprom_settings;
 static ServoAnimator s_servo_animator;
 static MPU6050 s_mpu(kMpuI2CAddr, kTau / 1000, kDt / 1000);
-bool s_balance_enabled;
+static bool s_balance_enabled;
 
 static const char* kServosNames[] = {
   "Head",
@@ -26,10 +26,10 @@ static const char* kServosNames[] = {
   "Right Back Knee",
   "Left Back Knee",
   nullptr
-};
+   };
 
-const char kKeyUp = -1;
-const char kKeyDown = -2;
+static const char kKeyUp = -1;
+static const char kKeyDown = -2;
 
 class MenuObserver {
  public:
@@ -40,7 +40,8 @@ class MenuObserver {
   virtual ~MenuObserver() {};
 };
 
-void UpdateMenu(int cursor, const char* message, const char** options, MenuObserver** observers)
+static void UpdateMenu(int cursor, const __FlashStringHelper* message,
+                       const char** options, MenuObserver** observers)
 {
   Serial.print(F("\e[1;1H\e[0m\e[1m"));
   Serial.println(message);
@@ -68,7 +69,9 @@ void UpdateMenu(int cursor, const char* message, const char** options, MenuObser
   Serial.print(F("\e[0m"));
 }
 
-int GetSelection(const char* message, const char** options, MenuObserver** observers = nullptr) {
+static int GetSelection(const __FlashStringHelper* message,
+                        const char** options,
+                        MenuObserver** observers = nullptr) {
   int cursor = 0;
  
   Serial.print(F("\e[2J"));
@@ -123,7 +126,7 @@ int GetSelection(const char* message, const char** options, MenuObserver** obser
   }
 }
 
-void ShowByte(int8_t value) {
+static void ShowByte(int8_t value) {
   Serial.print(F("  \e[0m\e[30m\e[47m"));
   int pad = value < 0 ? 0 : 1;
   int v = abs(value);
@@ -184,29 +187,60 @@ class ServoValueMenu : public MenuObserver {
   bool is_neg_;  // is_neg handles remembering '-' when the value is zero.
 };
 
+enum ServoValuesKind {
+  kServoValuesCalibration,
+  kServoValuesCreatePose,
+  kServoValuesLowerExtents,
+  kServoValuesUpperExtents
+};
 
-void CalibrateServos() {
-  const char* options[11 + 2] = {
+static void EnterServoValues(ServoValuesKind kind) {
+  const char* options[kServoCount + 2] = {
     "Back <<"
   };
-  int8_t* values = &s_eeprom_settings.settings().servo_zero_offset[0];
-  const int8_t* frame = s_servo_animator.GetFrame(kAnimationCalibrationPose, 0);
+  int8_t* values;
+  int8_t this_frame[kServoCount] = {0};
+  const int8_t* frame = nullptr;
+  const __FlashStringHelper* title = nullptr;
 
-  for (int i = 0; i < 11; ++i)
+  switch (kind) {
+    case kServoValuesCalibration:
+      values = &s_eeprom_settings.settings().servo_zero_offset[0];
+      frame = this_frame;
+      title = F("Choose which servo to calibrate:");
+      break;
+    case kServoValuesCreatePose:
+      values = &this_frame[0];
+      frame = this_frame;
+      title = F("Create the pose:");
+      break;
+    case kServoValuesLowerExtents:
+      values = &s_eeprom_settings.settings().servo_lower_extents[0];
+      frame = values;
+      title = F("Set most negative bounds:");
+      break;
+    case kServoValuesUpperExtents:
+      values = &s_eeprom_settings.settings().servo_upper_extents[0];
+      frame = values;
+      title = F("Set most positive bounds:");
+      break;
+  }
+
+  for (int i = 0; i < kServoCount; ++i)
     options[i + 1] = kServosNames[i];
 
-  MenuObserver** observers = new MenuObserver*[12];
+  MenuObserver** observers = new MenuObserver*[kServoCount + 1];
   observers[0] = nullptr;
-  for (int i = 1; i < 12; ++i) {
+  for (int i = 1; i < kServoCount + 1; ++i) {
     observers[i] = new ServoValueMenu(&values[i - 1], frame);
   }
 
   s_servo_animator.Attach();
   s_servo_animator.StartFrame(frame, millis());
 
-  GetSelection("Choose which servo to calibrate:", options, observers);
+  GetSelection(title, options, observers);
 
-  for (int i = 1; i < 12; ++i) {
+  for (int i = 1; i < kServoCount + 1; ++i) {
     delete observers[i];
   }
 
@@ -215,36 +249,7 @@ void CalibrateServos() {
   s_servo_animator.StartAnimation(kAnimationRest, millis());
 }
 
-void CreatePose() {
-  const char* options[11 + 2] = {
-    "Back <<"
-  };
-  int8_t this_frame[kServoCount] = {0};
-
-  for (int i = 0; i < 11; ++i)
-    options[i + 1] = kServosNames[i];
-
-  MenuObserver** observers = new MenuObserver*[12];
-  observers[0] = nullptr;
-  for (int i = 1; i < 12; ++i) {
-    observers[i] = new ServoValueMenu(&this_frame[i - 1], this_frame);
-  }
-
-  s_servo_animator.Attach();
-  s_servo_animator.StartFrame(this_frame, millis());
-
-  GetSelection("Create the pose:", options, observers);
-
-  for (int i = 1; i < 12; ++i) {
-    delete observers[i];
-  }
-
-  delete[] observers;
-  s_eeprom_settings.Store();
-  s_servo_animator.StartAnimation(kAnimationRest, millis());
-}
-
-void PrintGyroCorrections() {
+static void PrintGyroCorrections() {
   for (int i = 0; i < 3; ++i) {
     Serial.print(s_eeprom_settings.settings().gyro_correction[i]);
     Serial.print(F(" "));
@@ -252,14 +257,14 @@ void PrintGyroCorrections() {
   Serial.println();
 }
 
-void PrintPitchRollCorrections() {
+static void PrintPitchRollCorrections() {
   Serial.print(F("pitch: "));
   Serial.print(s_eeprom_settings.settings().pitch_correction);
   Serial.print(F(", roll: "));
   Serial.println(s_eeprom_settings.settings().roll_correction);
 }
 
-void DetermineGyroCorrection(int* gyro_correction) {
+static void DetermineGyroCorrection(int* gyro_correction) {
   // Once gyro is differing by only 2 between successive runs, we're happy.
   const int kSettleGyroDiff = 2;
 
@@ -305,8 +310,8 @@ void DetermineGyroCorrection(int* gyro_correction) {
   }
 }
 
-void DeterminePitchRollCorrection(const int* gyro_correction,
-                                  int* pitch_roll_correction) {
+static void DeterminePitchRollCorrection(const int* gyro_correction,
+                                         int* pitch_roll_correction) {
   Serial.println(F("\e[2J\e[1m\e[1;1HPlease wait, finding pitch/roll correction...\e[0m\n"));
 
   s_mpu.SetGyroCorrection(gyro_correction);
@@ -357,14 +362,14 @@ void DeterminePitchRollCorrection(const int* gyro_correction,
   }
 }
 
-void CalibrateMPU() {
+static void CalibrateMPU() {
   const char* kChoices[] = {
     "Back <<",
     "Continue >>",
     nullptr
   };
 
-  if (!GetSelection("Lay cat completely flat.", kChoices)) return;
+  if (!GetSelection(F("Lay cat completely flat."), kChoices)) return;
 
   int gyro_correction[3] = {0};
   DetermineGyroCorrection(gyro_correction);
@@ -394,13 +399,13 @@ void CalibrateMPU() {
   Serial.read();
 }
 
-void SetBalanceEnabled(bool enabled) {
+static void SetBalanceEnabled(bool enabled) {
   s_balance_enabled = enabled;
   if (!enabled)
     s_servo_animator.HandlePitchRoll(0, 0, millis());
 }
 
-void StreamMPU() {
+static void StreamMPU() {
   SetBalanceEnabled(false);
   while (!Serial.available()) {
     int16_t accel[3];
@@ -416,7 +421,7 @@ void StreamMPU() {
   Serial.read();
 }
 
-void SetPose() {
+static void SetPose() {
   const char* kPoseSelections[] = {
     "Back <<",
     "Balancing",
@@ -451,8 +456,7 @@ void SetPose() {
         if (current_frame_ >= total_frames_)
           current_frame_ = 0;
         HandleSelection();
-      }
-      if (key == kKeyDown) {
+      } else if (key == kKeyDown) {
         current_frame_--;
         if (current_frame_ < 0)
           current_frame_ = total_frames_ - 1;
@@ -506,7 +510,7 @@ void SetPose() {
   observers[7] = new PoseMenu(kAnimationWalk);
 
   // Only selection returned by GetSelection will be back.
-  GetSelection("Pick one:", kPoseSelections, observers);
+  GetSelection(F("Pick one:"), kPoseSelections, observers);
 
   for (int i = 1; i < 8; ++i) {
     delete observers[i];
@@ -537,6 +541,8 @@ int main() {
   while (true) {
     const char* kTopMenuSelections[] = {
       "Calibrate Servos",
+      "Set Servo Upper Bounds",
+      "Set Servo Lower Bounds",
       "Calibrate MPU",
       "Stream MPU",
       "Set Pose",
@@ -544,21 +550,27 @@ int main() {
       nullptr
     };
 
-    switch (GetSelection("Pick one:", kTopMenuSelections)) {
+    switch (GetSelection(F("Pick one:"), kTopMenuSelections)) {
       case 0:
-        CalibrateServos();
+        EnterServoValues(kServoValuesCalibration);
         break;
       case 1:
-        CalibrateMPU();
+        EnterServoValues(kServoValuesUpperExtents);
         break;
       case 2:
-        StreamMPU();
+        EnterServoValues(kServoValuesLowerExtents);
         break;
       case 3:
-        SetPose();
+        CalibrateMPU();
         break;
       case 4:
-        CreatePose();
+        StreamMPU();
+        break;
+      case 5:
+        SetPose();
+        break;
+      case 6:
+        EnterServoValues(kServoValuesCreatePose);
         break;
     }
   }
