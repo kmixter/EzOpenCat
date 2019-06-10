@@ -1,5 +1,5 @@
 CXXFLAGS += -std=c++11 -I googletest/include -I googletest -DTESTING \
-			-Wall -Werror
+			-Wall -Werror -g
 O = out/host
 COMMON = $(O)/mpu6050.o $(O)/servo_animator.o
 TESTS = $(patsubst %.cc,$(O)/%.o,$(wildcard *_test.cc))

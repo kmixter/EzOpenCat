@@ -173,7 +173,7 @@ class ServoValueMenu : public MenuObserver {
         *value_ *= -1;
     }
     if (*value_ != old_value)
-      s_servo_animator.SetFrame(frame_, millis());
+      s_servo_animator.StartFrame(frame_, millis());
   }
 
   ~ServoValueMenu() override {}
@@ -202,7 +202,7 @@ void CalibrateServos() {
   }
 
   s_servo_animator.Attach();
-  s_servo_animator.SetFrame(frame, millis());
+  s_servo_animator.StartFrame(frame, millis());
 
   GetSelection("Choose which servo to calibrate:", options, observers);
 
@@ -231,7 +231,7 @@ void CreatePose() {
   }
 
   s_servo_animator.Attach();
-  s_servo_animator.SetFrame(this_frame, millis());
+  s_servo_animator.StartFrame(this_frame, millis());
 
   GetSelection("Create the pose:", options, observers);
 
@@ -461,7 +461,8 @@ void SetPose() {
     }
 
     bool HandleSelection() override {
-      s_servo_animator.SetFrame(s_servo_animator.GetFrame(animation_, current_frame_), millis());
+      s_servo_animator.StartFrame(s_servo_animator.
+          GetFrame(animation_, current_frame_), millis());
       return false;
     }
 

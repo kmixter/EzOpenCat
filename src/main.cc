@@ -6,59 +6,42 @@
 #include "servo_animator.h"
 
 static const int kMpuI2CAddr = 0x68;
-static const float kGyroWeight = .98;
 static const float kDt = 10;
+static const float kTau = 500;
+
+static EepromSettingsManager s_eeprom_settings;
+static ServoAnimator s_servo_animator;
+static MPU6050 s_mpu(kMpuI2CAddr, kTau / 1000, kDt / 1000);
+static RemoteControl s_control(A0);
 
 class MyControlObserver : public ControlObserver {
  public:
   void OnRemoteKey(RemoteKey key) {
-    Serial.print("Serial received: "); Serial.println(key);
+    Serial.print(F("Serial received: ")); Serial.println(key);
+    last_key_ = key;
   }
+
+  bool Get(RemoteKey* result) {
+    if (last_key_ == kKeyMax)
+      return false;
+    *result = last_key_;
+    last_key_ = kKeyMax;
+    return true;
+  }
+
+  void Flush() {
+    last_key_ = kKeyMax;
+  }
+
+  RemoteKey last_key_ = kKeyMax;
 };
 
-void HandleString(const char* str, ServoAnimator* animator) {
-  Serial.print("Got command: ");
-  Serial.println(str);
-  int8_t angles[11] = {0};
-  int which = 0;
-  int this_value = 0;
-  bool this_negative = false;
+static MyControlObserver s_control_observer;
 
-  for (const char* p = str; *p; ++p) {
-    if (*p == ' ') continue;
-    if (*p == '-') {
-      this_negative = true;
-      continue;
-    }
-    if (*p >= '0' && *p <= '9') {
-      this_value *= 10;
-      this_value += *p - '0';
-      continue;
-    }
-    if (*p == ',')  {
-      angles[which] = this_value;
-      if (this_negative)
-        angles[which] *= -1;
-      which++;
-      if (which == 11) break;
-      continue;
-    }
-    Serial.print("ignoring ");
-    Serial.println(*p);
-  }
-  if (which == 8) {
-    memmove(&angles[3], &angles[0], sizeof(int[8]));
-    memset(&angles[0], 0, sizeof(int[2]));
-  }
-
-
-  Serial.print("Moving to ");
-  for (int i = 0; i < 11; ++i) {
-    Serial.print(angles[i]);
-    Serial.print(", ");
-  }
-  Serial.println("");
-  animator->SetFrame(angles, millis());
+static void RunStartupSequence() {
+  s_servo_animator.Attach();
+  delay(500);
+  s_servo_animator.Detach();
 }
 
 int main() {
@@ -67,71 +50,55 @@ int main() {
   // initialize serial communication at 9600 bits per second:
   Serial.begin(57600);
 
-  MPU6050 mpu(kMpuI2CAddr, kDt / 1000, 1);
-  mpu.Initialize();
-  RemoteControl control(A0);
-  MyControlObserver controlObserver;
-  control.Initialize();
-  ServoAnimator animator;
-  EepromSettingsManager settings_manager;
-  settings_manager.Initialize();
-  animator.Initialize();
-  animator.SetServoParams(&settings_manager.settings().servo_zero_offset[0]);
-  animator.Attach();
+  s_eeprom_settings.Initialize();
+  s_servo_animator.Initialize();
+  s_servo_animator.SetServoParams(&s_eeprom_settings.settings().servo_zero_offset[0]);
+  s_servo_animator.set_ms_per_degree(2);
+  s_mpu.Initialize();
+  s_mpu.SetGyroCorrection(s_eeprom_settings.settings().gyro_correction);
+  s_mpu.SetPitchRollCorrection(s_eeprom_settings.settings().pitch_correction,
+                               s_eeprom_settings.settings().roll_correction);
+  s_control.Initialize();
 
-  char cmd[80];
-  char* cmd_cursor = cmd;
+  RunStartupSequence();
 
-  for (int count = 0;; ++count) {
-    float estimated_pitch = 0;
-    float estimated_roll = 0;
-
-    int16_t accel[3];
-    int16_t gyro[3];
-    mpu.ReadBoth(accel, gyro);
-
-    mpu.ComputeFilteredPitchRoll(accel, gyro, &estimated_pitch, &estimated_roll);
-#if 0
-    if (count % 10 == 0) {
-      Serial.println("");
-      Serial.print("accl: "); Serial.print(accel[0]); Serial.print(" "); Serial.print(accel[1]); Serial.print(" "); Serial.println(accel[2]);
-      Serial.print("gyro: "); Serial.print(gyro[1]); Serial.print(":"); Serial.println(gyro[0]);
-
-      Serial.print("outp: ");
-      Serial.print(estimated_pitch);
-      Serial.print(" ");
-      Serial.print(estimated_roll);
-      Serial.println("");
+  while (true) {
+    RemoteKey key;
+    if (s_control_observer.Get(&key)) {
+      switch (key) {
+        case kKeyPause: {
+          int next_animation = kAnimationBalance;
+          if (s_servo_animator.animation_sequence() == kAnimationBalance)
+            next_animation = kAnimationRest;
+            s_servo_animator.StartAnimation(next_animation, millis());
+          break;
+        }
+        default:
+          Serial.println(F("Unhandled"));
+          break;
+      }
     }
-#endif
-    control.ReadAndDispatch(&controlObserver);
-    //animator.Animate();
-    while (Serial.available()) {
-      int ch = Serial.read();
-      if (ch == '\r') {
-        *cmd_cursor = 0;
-        HandleString(cmd, &animator);
-        cmd_cursor = cmd;
-      } else
-        *cmd_cursor++ = ch;
-    }
-    delay(kDt);
+    yield();
   }
 }
 
-// 1ms is not enough because delay() itself can overshoot by 2ms.
-static const int kWarningDeltaMicros = 3000;
-
 void yield() {
-  static unsigned long last_micros = 0;
-  unsigned long this_micros = micros();
-  if (last_micros && this_micros - last_micros > kWarningDeltaMicros) {
-    Serial.print("Slow yield: ");
-    Serial.print(this_micros - last_micros);
-    Serial.print(" @");
-    Serial.println(this_micros);
-  }
-  if (serialEventRun) serialEventRun();
+  unsigned long millis_now = millis();
+  s_servo_animator.Animate(millis_now);
+  s_control.ReadAndDispatch(&s_control_observer);
 
-  last_micros = micros();
+  static long millis_last_mpu = 0;
+  if (millis_now - millis_last_mpu >= kDt) {
+    millis_last_mpu = millis_now;
+    int16_t accel[3];
+    int16_t gyro[3];
+    s_mpu.ReadBoth(accel, gyro);
+    float pitch, roll;
+    s_mpu.ComputeFilteredPitchRoll(accel, gyro, &pitch, &roll);
+    s_servo_animator.HandlePitchRoll(pitch, roll, millis_now);
+  }
+
+  if (serialEventRun) {
+    serialEventRun();
+  }
 }

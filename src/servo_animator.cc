@@ -89,6 +89,7 @@ void ServoAnimator::Initialize() {
   // at rest position.
   memcpy(current_positions_, GetFrame(kAnimationRest, 0),
          sizeof(current_positions_));
+  animation_sequence_ = kAnimationRest;
 }
 
 void ServoAnimator::WriteServo(int servo, int logical_angle) {
@@ -145,6 +146,11 @@ int ServoAnimator::AngleAdd(int a1, int a2) {
   return result;
 }
 
+void ServoAnimator::StartFrame(const int8_t* new_frame, unsigned long millis_now) {
+  SetFrame(new_frame, millis_now);
+  animation_sequence_ = kAnimationSingleFrame;
+}
+
 void ServoAnimator::SetFrame(const int8_t* new_frame, unsigned long millis_now) {
   if (new_frame == nullptr) {
 #ifndef TESTING
@@ -164,8 +170,6 @@ void ServoAnimator::ResetAnimation() {
   millis_start_ = 0;
   memset(start_frame_, 0, sizeof(start_frame_));
   memset(target_balanced_frame_, 0, sizeof(target_balanced_frame_));
-  animation_sequence_ = kAnimationNone;
-  animation_sequence_frame_number_ = 0;
 }
 
 void ServoAnimator::StartAnimation(int animation, unsigned long millis_now) {
@@ -173,6 +177,14 @@ void ServoAnimator::StartAnimation(int animation, unsigned long millis_now) {
   animation_sequence_frame_number_ = 0;
   Attach();
   SetFrame(GetFrame(animation, 0), millis_now);
+}
+
+void ServoAnimator::WaitUntilDone() const {
+  while (animating()) {
+#ifndef TESTING
+    delay(100);
+#endif
+  }
 }
 
 void ServoAnimator::InterpolateToFrame(unsigned long millis_now,
@@ -256,7 +268,7 @@ void ServoAnimator::StartNextAnimationFrame(unsigned long millis_now) {
 
 void ServoAnimator::Animate(unsigned long millis_now) {
   if (!animating_) {
-    //printf("@%lums, not animating\n", millis_now);
+    printf("@%lums, not animating\n", millis_now);
     return;
   }
 
@@ -274,7 +286,7 @@ void ServoAnimator::Animate(unsigned long millis_now) {
   InterpolateToFrame(millis_now, &done_interpolation);
 
   if (done_interpolation) {
-    if (animation_sequence_ == kAnimationNone)
+    if (animation_sequence_ == kAnimationSingleFrame)
       // A direct SetFrame call finished.
       ResetAnimation();
     else
