@@ -1,5 +1,7 @@
 #include "servo_animator.h"
 
+#include "eeprom_settings.h"
+
 #include <gtest/gtest.h>
 
 class ServoAnimatorTest : public testing::Test {
@@ -8,18 +10,22 @@ class ServoAnimatorTest : public testing::Test {
 
   void SetUp() override {
     animator_.Initialize();
-    animator_.SetServoParams(zeroes_);
+    animator_.SetEepromSettings(&settings_);
     const int8_t* rest_frame = animator_.GetFrame(kAnimationRest, 0);
 
-    for (int i = 0; i < kServoCount; ++i)
+    for (int i = 0; i < kServoCount; ++i) {
       rest_positions_[i] = 90 + rest_frame[i] * animator_.kDirectionMap[i];
+      settings_.servo_zero_offset[i] = 0;
+      settings_.servo_upper_extents[i] = 90;
+      settings_.servo_lower_extents[i] = -90;
+    }
   }
 
   void TestAnimate(int servo, int* test_ms, int* expected_angle, int count);
 
   ServoAnimator animator_;
   int rest_positions_[kServoCount];
-  int8_t zeroes_[kServoCount] = {0};
+  EepromSettings settings_;
 };
 
 TEST_F(ServoAnimatorTest, Initialize) {
@@ -77,9 +83,9 @@ TEST_F(ServoAnimatorTest, StartFrameToCalibrationAndAnimateConverges) {
 }
 
 TEST_F(ServoAnimatorTest, StartFrameToCalibrationWithZeroOffsets) {
-  zeroes_[kServoHead] = -5;
-  zeroes_[kServoLeftFrontShoulder] = 7;
-  zeroes_[kServoRightFrontShoulder] = 7;
+  settings_.servo_zero_offset[kServoHead] = -5;
+  settings_.servo_zero_offset[kServoLeftFrontShoulder] = 7;
+  settings_.servo_zero_offset[kServoRightFrontShoulder] = 7;
    const int8_t* frame =
     animator_.GetFrame(kAnimationCalibrationPose, 0); 
   animator_.Attach();
@@ -199,4 +205,20 @@ TEST_F(ServoAnimatorTest, AnimationCalibrationPoseBalances) {
   animator_.Animate(30000);
   EXPECT_EQ(90, animator_.servo_[kServoHead]->value);
   EXPECT_EQ(90, animator_.servo_[kServoNeck]->value);
+}
+
+TEST_F(ServoAnimatorTest, ExtentsAreRespected) {
+  settings_.servo_lower_extents[kServoNeck] = -50;
+  settings_.servo_upper_extents[kServoLeftFrontShoulder] = 40;
+  animator_.Attach();
+
+  int actual_rest_positions[kServoCount];
+  memcpy(actual_rest_positions, rest_positions_, sizeof(actual_rest_positions));
+  actual_rest_positions[kServoNeck] = 140;
+  actual_rest_positions[kServoLeftFrontShoulder] = 130;
+
+  for (int i = 0; i < kServoCount; ++i) {
+    EXPECT_TRUE(animator_.servo_[i]->attached);
+    EXPECT_EQ(actual_rest_positions[i], animator_.servo_[i]->value);
+  }
 }

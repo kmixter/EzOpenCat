@@ -35,8 +35,9 @@ class MenuObserver {
  public:
   MenuObserver() {}
   virtual void Show() = 0;
-  virtual void HandleKey(char key) = 0;
-  virtual bool HandleSelection() = 0;
+  virtual void HandleKey(char key) {};
+  virtual bool HandleSelection() { return false; }
+  virtual void HandleHighlighted() {}
   virtual ~MenuObserver() {};
 };
 
@@ -73,6 +74,7 @@ static int GetSelection(const __FlashStringHelper* message,
                         const char** options,
                         MenuObserver** observers = nullptr) {
   int cursor = 0;
+  int last_cursor = -1;
  
   Serial.print(F("\e[2J"));
   UpdateMenu(cursor, message, options, observers);
@@ -123,6 +125,9 @@ static int GetSelection(const __FlashStringHelper* message,
         observers[cursor]->HandleKey(kKeyDown);
     }
     UpdateMenu(cursor, message, options, observers);
+    if (cursor != last_cursor && observers != nullptr && observers[cursor] != nullptr)
+      observers[cursor]->HandleHighlighted();
+    last_cursor = cursor;
   }
 }
 
@@ -141,16 +146,15 @@ static void ShowByte(int8_t value) {
 
 class ServoValueMenu : public MenuObserver {
  public:
-  ServoValueMenu(int8_t* value, const int8_t* frame) : value_(value), frame_(frame) {
+  ServoValueMenu(int8_t* value, int index, const int8_t* frame,
+                 bool control_separately = false)
+      : value_(value), index_(index), frame_(frame),
+        control_separately_(control_separately) {
     is_neg_ = *value_ < 0;
   }
 
   void Show() override {
     ShowByte(*value_);
-  }
-
-  bool HandleSelection() override {
-    return false;
   }
 
   void HandleKey(char key) override {
@@ -175,17 +179,38 @@ class ServoValueMenu : public MenuObserver {
       if (is_neg_ && *value_ > 0)
         *value_ *= -1;
     }
-    if (*value_ != old_value)
+    if (*value_ != old_value) {
+      StartFrame();
+    }
+  }
+
+  void HandleHighlighted() {
+    if (control_separately_)
+      StartFrame();
+  }
+
+  void StartFrame() {
+    if (control_separately_) {
+      memset(zeroes_, 0, sizeof(zeroes_));
+      zeroes_[index_] = *value_;
+      s_servo_animator.StartFrame(zeroes_, millis());
+    } else {
       s_servo_animator.StartFrame(frame_, millis());
+    }
   }
 
   ~ServoValueMenu() override {}
 
  protected:
   int8_t* value_;
+  int index_;
   const int8_t* frame_;
+  bool control_separately_;
   bool is_neg_;  // is_neg handles remembering '-' when the value is zero.
+  static int8_t zeroes_[kServoCount];
 };
+
+int8_t ServoValueMenu::zeroes_[kServoCount];
 
 enum ServoValuesKind {
   kServoValuesCalibration,
@@ -202,6 +227,7 @@ static void EnterServoValues(ServoValuesKind kind) {
   int8_t this_frame[kServoCount] = {0};
   const int8_t* frame = nullptr;
   const __FlashStringHelper* title = nullptr;
+  bool control_separately = false;
 
   switch (kind) {
     case kServoValuesCalibration:
@@ -218,11 +244,13 @@ static void EnterServoValues(ServoValuesKind kind) {
       values = &s_eeprom_settings.settings().servo_lower_extents[0];
       frame = values;
       title = F("Set most negative bounds:");
+      control_separately = true;
       break;
     case kServoValuesUpperExtents:
       values = &s_eeprom_settings.settings().servo_upper_extents[0];
       frame = values;
       title = F("Set most positive bounds:");
+      control_separately = true;
       break;
   }
 
@@ -232,11 +260,11 @@ static void EnterServoValues(ServoValuesKind kind) {
   MenuObserver** observers = new MenuObserver*[kServoCount + 1];
   observers[0] = nullptr;
   for (int i = 1; i < kServoCount + 1; ++i) {
-    observers[i] = new ServoValueMenu(&values[i - 1], frame);
+    observers[i] = new ServoValueMenu(&values[i - 1], i - 1, frame,
+                                      control_separately);
   }
 
-  s_servo_animator.Attach();
-  s_servo_animator.StartFrame(frame, millis());
+  s_servo_animator.StartAnimation(kAnimationCalibrationPose, millis());
 
   GetSelection(title, options, observers);
 
@@ -488,8 +516,6 @@ static void SetPose() {
       Serial.print(F("\e[0m"));
     }
 
-    void HandleKey(char key) override {}
-
     bool HandleSelection() override {
       SetBalanceEnabled(!s_balance_enabled);
       return false;
@@ -531,7 +557,7 @@ int main() {
 
   s_eeprom_settings.Initialize();
   s_servo_animator.Initialize();
-  s_servo_animator.SetServoParams(&s_eeprom_settings.settings().servo_zero_offset[0]);
+  s_servo_animator.SetEepromSettings(&s_eeprom_settings.settings());
   s_servo_animator.set_ms_per_degree(2);
   s_mpu.Initialize();
   s_mpu.SetGyroCorrection(s_eeprom_settings.settings().gyro_correction);

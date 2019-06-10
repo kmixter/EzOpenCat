@@ -52,7 +52,7 @@ int main() {
 
   s_eeprom_settings.Initialize();
   s_servo_animator.Initialize();
-  s_servo_animator.SetServoParams(&s_eeprom_settings.settings().servo_zero_offset[0]);
+  s_servo_animator.SetEepromSettings(&s_eeprom_settings.settings());
   s_servo_animator.set_ms_per_degree(2);
   s_mpu.Initialize();
   s_mpu.SetGyroCorrection(s_eeprom_settings.settings().gyro_correction);

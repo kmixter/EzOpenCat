@@ -5,6 +5,8 @@
 #include <Servo.h>
 #else
 
+class EepromSettings;
+
 class Servo {
  public:
   Servo() {}
@@ -72,7 +74,7 @@ class ServoAnimator {
   void Rest();
   void Attach();
   void Detach();
-  void SetServoParams(const int8_t* servo_zero_offsets);
+  void SetEepromSettings(const EepromSettings* settings);
   void StartFrame(const int8_t* servo_values, unsigned long millis_now);
   const int8_t* GetFrame(int animation, int number);
   void Animate(unsigned long millis_now);
@@ -89,9 +91,7 @@ class ServoAnimator {
   void SetFrame(const int8_t* servo_values, unsigned long millis_now);
   void StartNextAnimationFrame(unsigned long millis_now);
   void WriteServo(int servo, int logical_angle);
-  int ConvertToRealAngle(int servo, int angle) {
-    return 90 + (angle + servo_zero_offsets_[servo]) * kDirectionMap[servo];
-  }
+  int ConvertToRealAngle(int servo, int angle);
   void InterpolateToFrame(unsigned long millis_now, bool* done);
   void ComputeBalancedFrame();
   int AngleAdd(int a1, int a2);
@@ -105,7 +105,7 @@ class ServoAnimator {
   int animation_sequence_ = kAnimationSingleFrame;
   int animation_sequence_frame_number_ = 0;
 
-  const int8_t* servo_zero_offsets_ = nullptr;
+  const EepromSettings* eeprom_settings_ = nullptr;
   int ms_per_degree_ = kDefaultMsPerDegree;
   int8_t current_positions_[kServoCount];
 

@@ -93,11 +93,21 @@ void ServoAnimator::Initialize() {
 }
 
 void ServoAnimator::WriteServo(int servo, int logical_angle) {
+  if (logical_angle > eeprom_settings_->servo_upper_extents[servo])
+    logical_angle = eeprom_settings_->servo_upper_extents[servo];
+  if (logical_angle < eeprom_settings_->servo_lower_extents[servo])
+    logical_angle = eeprom_settings_->servo_lower_extents[servo];
   int real_angle = ConvertToRealAngle(servo, logical_angle);
   servo_[servo]->write(real_angle);
   //printf("Writing servo %d to logical %d, real %d\n", servo, logical_angle,
   //       real_angle);
   current_positions_[servo] = logical_angle; 
+}
+
+
+int ServoAnimator::ConvertToRealAngle(int servo, int angle) {
+  return 90 + (angle + eeprom_settings_->servo_zero_offset[servo]) *
+      kDirectionMap[servo];
 }
 
 void ServoAnimator::Attach() {
@@ -112,8 +122,8 @@ void ServoAnimator::Detach() {
     servo_[i]->detach();
 }
 
-void ServoAnimator::SetServoParams(const int8_t* servo_zero_offsets) {
-  servo_zero_offsets_ = servo_zero_offsets;
+void ServoAnimator::SetEepromSettings(const EepromSettings* settings) {
+  eeprom_settings_ = settings;
 }
 
 void ServoAnimator::ComputeBalancedFrame() {
