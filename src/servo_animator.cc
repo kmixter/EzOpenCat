@@ -273,7 +273,7 @@ void ServoAnimator::Animate(unsigned long millis_now) {
   }
 
 #ifndef TESTING
-  if (millis_last_ && millis_now - millis_last_ > 3) {
+  if (millis_last_ && millis_now - millis_last_ > 10) {
     Serial.print(F("Slow animation: "));
     Serial.print(millis_now - millis_last_);
     Serial.print(F("ms @"));

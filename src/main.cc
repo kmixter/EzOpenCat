@@ -62,20 +62,48 @@ int main() {
 
   RunStartupSequence();
 
+  Serial.println(F("Ready..."));
+
   while (true) {
     RemoteKey key;
     if (s_control_observer.Get(&key)) {
+      int next_animation = kAnimationSingleFrame;
       switch (key) {
         case kKeyPause: {
-          int next_animation = kAnimationBalance;
+          next_animation = kAnimationBalance;
           if (s_servo_animator.animation_sequence() == kAnimationBalance)
             next_animation = kAnimationRest;
-            s_servo_animator.StartAnimation(next_animation, millis());
           break;
         }
+        case kKey1:
+          next_animation = kAnimationWalkLeft;
+          break;
+        case kKey2:
+          next_animation = kAnimationWalk;
+          break;
+        case kKey3:
+          next_animation = kAnimationWalkRight;
+          break;
+        case kKey5:
+          next_animation = kAnimationSit;
+          break;
+        case kKey7:
+          next_animation = kAnimationBackUpLeft;
+          break;
+        case kKey8:
+          next_animation = kAnimationBackUp;
+          break;
+        case kKey9:
+          next_animation = kAnimationBackUpRight;
+          break;
         default:
           Serial.println(F("Unhandled"));
           break;
+      }
+      if (next_animation != kAnimationSingleFrame) {
+        if (s_servo_animator.animation_sequence() == next_animation)
+          next_animation = kAnimationBalance;
+        s_servo_animator.StartAnimation(next_animation, millis());
       }
     }
     yield();

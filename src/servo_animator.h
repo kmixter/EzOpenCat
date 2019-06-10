@@ -38,6 +38,11 @@ const int kAnimationSleep = 39;
 const int kAnimationBalance = 16;
 const int kAnimationSit = 38;
 const int kAnimationWalk = 13;
+const int kAnimationWalkLeft = 14;
+const int kAnimationWalkRight = 15;
+const int kAnimationBackUp = 1;
+const int kAnimationBackUpLeft = 2;
+const int kAnimationBackUpRight = 3;
 const int kAnimationSingleFrame = -1;
 
 enum ServoIndex {
