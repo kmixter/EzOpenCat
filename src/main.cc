@@ -45,6 +45,7 @@ static void RunStartupSequence() {
 }
 
 int main() {
+  int ms_per_degree = 2;
   init();
 
   // initialize serial communication at 9600 bits per second:
@@ -53,7 +54,7 @@ int main() {
   s_eeprom_settings.Initialize();
   s_servo_animator.Initialize();
   s_servo_animator.SetEepromSettings(&s_eeprom_settings.settings());
-  s_servo_animator.set_ms_per_degree(2);
+  s_servo_animator.set_ms_per_degree(ms_per_degree);
   s_mpu.Initialize();
   s_mpu.SetGyroCorrection(s_eeprom_settings.settings().gyro_correction);
   s_mpu.SetPitchRollCorrection(s_eeprom_settings.settings().pitch_correction,
@@ -95,6 +96,16 @@ int main() {
           break;
         case kKey9:
           next_animation = kAnimationBackUpRight;
+          break;
+        case kKeyMinus:
+          ++ms_per_degree;
+          s_servo_animator.set_ms_per_degree(ms_per_degree);
+          break;
+        case kKeyPlus:
+          if (ms_per_degree > 1) {
+            --ms_per_degree;
+            s_servo_animator.set_ms_per_degree(ms_per_degree);
+          }
           break;
         default:
           Serial.println(F("Unhandled"));
