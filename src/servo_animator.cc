@@ -89,6 +89,7 @@ void ServoAnimator::Initialize() {
   // at rest position.
   memcpy(current_positions_, GetFrame(kAnimationRest, 0),
          sizeof(current_positions_));
+  memcpy(target_unbalanced_frame_, current_positions_, sizeof(target_unbalanced_frame_));
   animation_sequence_ = kAnimationRest;
 }
 
@@ -126,14 +127,39 @@ void ServoAnimator::SetEepromSettings(const EepromSettings* settings) {
   eeprom_settings_ = settings;
 }
 
+// To get taller:
+// Shoulders go towards 0, knees go towards 90 (negative 90 for back).
+
+// To get shorter:
+// Shoulders go towards 90 (negative in back), knees go towards 0
+
 void ServoAnimator::ComputeBalancedFrame() {
-  memcpy(target_balanced_frame_, target_unbalanced_frame_, sizeof(target_balanced_frame_));
   target_balanced_frame_[0] = AngleAdd(target_unbalanced_frame_[0], pitch_);
   target_balanced_frame_[1] = AngleAdd(target_unbalanced_frame_[1], -roll_);
+  target_balanced_frame_[2] = AngleAdd(target_unbalanced_frame_[2], -roll_ * 2);
+  bool leaning_left = roll_ > 0;
+  for (int i = int(kServoLeftFrontShoulder); i <= int(kServoLeftBackShoulder); ++i) {
+    bool is_left_leg = i == kServoLeftBackShoulder || i == kServoLeftFrontShoulder;
+    int lean_factor = is_left_leg == leaning_left ? -2 : -3;
+    int back_factor = i >= kServoRightBackShoulder ? -1 : 1;
+    target_balanced_frame_[i] = AngleAdd(target_unbalanced_frame_[i],
+        -9 * pitch_ / 10 + abs(roll_) * back_factor * -lean_factor / 2);
+  }
+  for (int i = int(kServoLeftFrontKnee); i <= int(kServoLeftBackKnee); ++i) {
+    bool is_left_leg = i == kServoLeftBackKnee || i == kServoLeftFrontKnee;
+    int lean_factor = is_left_leg == leaning_left ? -2 : -3;
+    int back_factor = i >= kServoRightBackKnee ? -1 : 1;
+    target_balanced_frame_[i] = AngleAdd(target_unbalanced_frame_[i],
+        13 * pitch_ / 10 + abs(roll_) * back_factor * lean_factor * 7 / 10);
+  }
 }
 
 void ServoAnimator::HandlePitchRoll(int pitch, int roll, unsigned long millis_now) {
   bool any_change = false;
+  if (abs(pitch) > 90 || abs(roll) > 90) {
+    pitch = 0;
+    roll = 0;
+  }
   if (abs(pitch_ - pitch) >= 10) {
     pitch_ = pitch;
     any_change = true;
