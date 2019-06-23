@@ -10,7 +10,9 @@ static const float kTau = 500;
 
 static EepromSettingsManager s_eeprom_settings;
 static ServoAnimator s_servo_animator;
+#ifdef MPU
 static MPU6050 s_mpu(kMpuI2CAddr, kTau / 1000, kDt / 1000);
+#endif  // MPU
 static bool s_balance_enabled;
 
 static const char* kServosNames[] = {
@@ -293,6 +295,7 @@ static void PrintPitchRollCorrections() {
 }
 
 static void DetermineGyroCorrection(int* gyro_correction) {
+#ifdef MPU
   // Once gyro is differing by only 2 between successive runs, we're happy.
   const int kSettleGyroDiff = 2;
 
@@ -336,10 +339,12 @@ static void DetermineGyroCorrection(int* gyro_correction) {
     if (abs_gyro_diff <= kSettleGyroDiff)
       break;
   }
+#endif  // MPU
 }
 
 static void DeterminePitchRollCorrection(const int* gyro_correction,
                                          int* pitch_roll_correction) {
+#ifdef MPU
   Serial.println(F("\e[2J\e[1m\e[1;1HPlease wait, finding pitch/roll correction...\e[0m\n"));
 
   s_mpu.SetGyroCorrection(gyro_correction);
@@ -388,6 +393,7 @@ static void DeterminePitchRollCorrection(const int* gyro_correction,
     if (all_in_tolerance)
       break;
   }
+#endif  // MPU
 }
 
 static void CalibrateMPU() {
@@ -434,6 +440,7 @@ static void SetBalanceEnabled(bool enabled) {
 }
 
 static void StreamMPU() {
+#ifdef MPU
   SetBalanceEnabled(false);
   while (!Serial.available()) {
     int16_t accel[3];
@@ -447,6 +454,7 @@ static void StreamMPU() {
     delay(kDt);
   }
   Serial.read();
+#endif  // MPU
 }
 
 static void SetPose() {
@@ -559,10 +567,12 @@ int main() {
   s_servo_animator.Initialize();
   s_servo_animator.SetEepromSettings(&s_eeprom_settings.settings());
   s_servo_animator.set_ms_per_degree(2);
+#ifdef MPU
   s_mpu.Initialize();
   s_mpu.SetGyroCorrection(s_eeprom_settings.settings().gyro_correction);
   s_mpu.SetPitchRollCorrection(s_eeprom_settings.settings().pitch_correction,
                                s_eeprom_settings.settings().roll_correction);
+#endif  // MPU
 
   while (true) {
     const char* kTopMenuSelections[] = {
@@ -606,6 +616,7 @@ void yield() {
   unsigned long millis_now = millis();
   s_servo_animator.Animate(millis_now);
 
+#ifdef MPU
   static long millis_last_mpu = 0;
   if (s_balance_enabled && millis_now - millis_last_mpu >= kDt) {
     millis_last_mpu = millis_now;
@@ -616,6 +627,7 @@ void yield() {
     s_mpu.ComputeFilteredPitchRoll(accel, gyro, &pitch, &roll);
     s_servo_animator.HandlePitchRoll(pitch, roll, millis_now);
   }
+#endif  // MPU
 
   if (serialEventRun) {
     serialEventRun();

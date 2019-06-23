@@ -11,7 +11,9 @@ static const float kTau = 500;
 
 static EepromSettingsManager s_eeprom_settings;
 static ServoAnimator s_servo_animator;
+#ifdef MPU
 static MPU6050 s_mpu(kMpuI2CAddr, kTau / 1000, kDt / 1000);
+#endif  // MPU
 static RemoteControl s_control(A0);
 
 class MyControlObserver : public ControlObserver {
@@ -55,10 +57,12 @@ int main() {
   s_servo_animator.Initialize();
   s_servo_animator.SetEepromSettings(&s_eeprom_settings.settings());
   s_servo_animator.set_ms_per_degree(ms_per_degree);
+#ifdef MPU
   s_mpu.Initialize();
   s_mpu.SetGyroCorrection(s_eeprom_settings.settings().gyro_correction);
   s_mpu.SetPitchRollCorrection(s_eeprom_settings.settings().pitch_correction,
                                s_eeprom_settings.settings().roll_correction);
+#endif  // MPU
   s_control.Initialize();
 
   RunStartupSequence();
@@ -126,6 +130,7 @@ void yield() {
   s_servo_animator.Animate(millis_now);
   s_control.ReadAndDispatch(&s_control_observer);
 
+#ifdef MPU
   static long millis_last_mpu = 0;
   if (millis_now - millis_last_mpu >= kDt) {
     millis_last_mpu = millis_now;
@@ -136,6 +141,7 @@ void yield() {
     s_mpu.ComputeFilteredPitchRoll(accel, gyro, &pitch, &roll);
     s_servo_animator.HandlePitchRoll(pitch, roll, millis_now);
   }
+#endif
 
   if (serialEventRun) {
     serialEventRun();
