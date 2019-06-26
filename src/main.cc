@@ -46,8 +46,23 @@ static void RunStartupSequence() {
   s_servo_animator.Detach();
 }
 
+void UpdateWalkingAnimation(int walk_mode, const int walk_modes[][3], int walk_modes_max, int* next_animation) {
+  Serial.print("New walk mode ");
+  Serial.println(walk_mode);
+
+  for (int i = 0; i < walk_modes_max; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      if (s_servo_animator.animation_sequence() == walk_modes[i][j]) {
+        *next_animation = walk_modes[walk_mode][j];
+        Serial.print("Updating to ");
+        Serial.println(*next_animation);
+      }
+    }
+  }
+}
+
 int main() {
-  int ms_per_degree = 2;
+  int ms_per_degree = 4;
   init();
 
   // initialize serial communication at 9600 bits per second:
@@ -69,28 +84,54 @@ int main() {
 
   Serial.println(F("Ready..."));
 
+  int walk_mode = 0;
+  const int walk_modes[][3] = {
+    { kAnimationWalkLeft, kAnimationWalk, kAnimationWalkRight },
+    { kAnimationTrLeft, kAnimationTr, kAnimationTrRight },
+    { kAnimationCrawlLeft, kAnimationCrawl, kAnimationCrawlRight }
+  };
+  const int walk_modes_max = sizeof(walk_modes[0]) / sizeof(walk_modes[0][0]);
+
   while (true) {
     RemoteKey key;
     if (s_control_observer.Get(&key)) {
       int next_animation = kAnimationSingleFrame;
       switch (key) {
         case kKeyPause: {
-          next_animation = kAnimationBalance;
-          if (s_servo_animator.animation_sequence() == kAnimationBalance)
-            next_animation = kAnimationRest;
+          next_animation = kAnimationRest;
+          if (s_servo_animator.animation_sequence() == kAnimationRest)
+            next_animation = kAnimationBalance;
           break;
         }
+        case kKeyPrev:
+          walk_mode--;
+          if (walk_mode < 0)
+            walk_mode = walk_modes_max;
+          UpdateWalkingAnimation(walk_mode, walk_modes, walk_modes_max, &next_animation);
+          break;
+        case kKeyNext:
+          walk_mode++;
+          if (walk_mode == walk_modes_max)
+            walk_mode = 0;
+          UpdateWalkingAnimation(walk_mode, walk_modes, walk_modes_max, &next_animation);
+          break;
+        case kKeyEq:
+          next_animation = kAnimationStretch;
+          break;
         case kKey1:
-          next_animation = kAnimationWalkLeft;
+          next_animation = walk_modes[walk_mode][0];
           break;
         case kKey2:
-          next_animation = kAnimationWalk;
+          next_animation = walk_modes[walk_mode][1];
           break;
         case kKey3:
-          next_animation = kAnimationWalkRight;
+          next_animation = walk_modes[walk_mode][2];
           break;
         case kKey5:
           next_animation = kAnimationSit;
+          break;
+        case kKey6:
+          next_animation = kAnimationFistBump;
           break;
         case kKey7:
           next_animation = kAnimationBackUpLeft;
@@ -104,12 +145,16 @@ int main() {
         case kKeyMinus:
           ++ms_per_degree;
           s_servo_animator.set_ms_per_degree(ms_per_degree);
+          Serial.print(ms_per_degree);
+          Serial.println(F("ms/deg"));
           break;
         case kKeyPlus:
           if (ms_per_degree > 1) {
             --ms_per_degree;
             s_servo_animator.set_ms_per_degree(ms_per_degree);
           }
+          Serial.print(ms_per_degree);
+          Serial.println(F("ms/deg"));
           break;
         default:
           Serial.println(F("Unhandled"));

@@ -52,20 +52,33 @@ const int8_t* ServoAnimator::GetFrame(int animation, int number) {
 
   const char* instinct = progmemPointer[animation];
   const char* walking_frame = nullptr;
-  if (number >= pgm_read_int8(instinct))
+  int total_frames = pgm_read_int8(instinct);
+  int frame_dofs = 16;
+  if (total_frames < 0) {
+    total_frames = -total_frames;
+    frame_dofs = ActualDOF;
+  } else if (total_frames > 1) {
+    frame_dofs = WalkingDOF;
+  }
+  if (number >= total_frames)
     return nullptr;
-  if (pgm_read_int8(instinct) == 1) {
-    const char* full_frame = instinct + 3;
-    // Single frame has 16 entries.
-    result[kServoHead] = pgm_read_int8(full_frame + 0);
-    result[kServoNeck] = pgm_read_int8(full_frame + 1);
-    result[kServoTail] = pgm_read_int8(full_frame + 2);
-    walking_frame = full_frame + 8;
-  } else {
-    walking_frame = instinct + 3 + 8 * number;
+
+  const char* frame_start = instinct + 3 + frame_dofs * number;
+  if (frame_dofs == 16 || frame_dofs == ActualDOF) {
+    result[kServoHead] = pgm_read_int8(frame_start + 0);
+    result[kServoNeck] = pgm_read_int8(frame_start + 1);
+    result[kServoTail] = pgm_read_int8(frame_start + 2);
+    if (frame_dofs == 16)
+      walking_frame = frame_start + 8;
+    else
+      walking_frame = frame_start + 3;
+  } else if (frame_dofs == WalkingDOF) {
+    walking_frame = frame_start;
     result[kServoHead] = 0;
     result[kServoNeck] = 0;
     result[kServoTail] = 0;
+  } else {
+    return nullptr;
   }
   result[kServoLeftFrontKnee] = pgm_read_int8(walking_frame + 4);
   result[kServoLeftFrontShoulder] = pgm_read_int8(walking_frame + 0);
@@ -304,7 +317,9 @@ void ServoAnimator::StartNextAnimationFrame(unsigned long millis_now) {
 
 void ServoAnimator::Animate(unsigned long millis_now) {
   if (!animating_) {
+#ifdef TESTING
     printf("@%lums, not animating\n", millis_now);
+#endif
     return;
   }
 

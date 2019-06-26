@@ -39,6 +39,20 @@ TEST_F(ServoAnimatorTest, GetFrameForCalibrationPose) {
     EXPECT_EQ(0, frame[i]);
 }
 
+TEST_F(ServoAnimatorTest, GetFrameForActualFrameAnimation) {
+  const int8_t* frame =
+    animator_.GetFrame(kAnimationFistBump, 0);
+  ASSERT_NE(nullptr, frame);
+  EXPECT_EQ(-50, frame[kServoHead]);
+  EXPECT_EQ(-80, frame[kServoRightBackShoulder]);
+  frame = animator_.GetFrame(kAnimationFistBump, 1);
+  ASSERT_NE(nullptr, frame);
+  EXPECT_EQ(-20, frame[kServoHead]);
+  EXPECT_EQ(-80, frame[kServoRightBackShoulder]);
+  frame = animator_.GetFrame(kAnimationFistBump, 2);
+  EXPECT_EQ(nullptr, frame);
+}
+
 TEST_F(ServoAnimatorTest, AttachAttachesAndSetsToRestingPosition) {
   for (int i = 0; i < kServoCount; ++i)
     EXPECT_FALSE(animator_.servo_[i]->attached);
@@ -115,7 +129,7 @@ void ServoAnimatorTest::TestAnimate(int servo, int* test_ms, int* expected_angle
   for (int i = 0; i < count; ++i) {
     animator_.Animate(test_ms[i]);
     ASSERT_EQ(expected_angle[i], animator_.servo_[servo]->value) << "Test at " << test_ms[i] << "ms";
-    EXPECT_EQ(i != count - 1, animator_.animating());
+    ASSERT_EQ(i != count - 1, animator_.animating()) << "Test at " << test_ms[i] << "ms";
   }
 }
 
@@ -124,13 +138,13 @@ TEST_F(ServoAnimatorTest, FrameInterpolationIsSmooth) {
 
   {
     animator_.StartFrame(animator_.GetFrame(kAnimationCalibrationPose, 0), 0);
-    // From Rest to Calibrate Pose, the 2nd biggest change is shoulder rotation
+    // From Rest to Calibrate Pose, the biggest change is shoulder rotation
     // from 60 to 0 degrees. With min_ms_per_angle_ of 1, this transition
     // should take 60 milliseconds to complete. Using cosine for smoothing, we
     // check progress at 1, 15, 30, 45, 59, and 60ms.
 
-    int test_ms[] =        {   1,  15,  30,  45,  59,  60, 80 };
-    int expected_angle[] = { 150, 141, 120,  99,  90,  90, 90 };
+    int test_ms[] =        {   1,  15,  30,  45,  59,  60 };
+    int expected_angle[] = { 150, 141, 120,  99,  90,  90 };
 
     TestAnimate(kServoLeftFrontShoulder, test_ms, expected_angle,
                 sizeof(test_ms) / sizeof(test_ms[0]));
@@ -150,8 +164,8 @@ TEST_F(ServoAnimatorTest, FrameInterpolationIsSmooth) {
   { // Animate back to rest. Track one of the negative direction motions.
     // Move from balance to rest moves knee servos 75 degrees (max movement).
     animator_.StartFrame(animator_.GetFrame(kAnimationRest, 0), 200);
-    int test_ms[] =        { 201, 219, 238, 256, 274, 275, 280 };
-    int expected_angle[] = { 120, 109,  82,  56,  45,  45,  45 };
+    int test_ms[] =        { 201, 219, 238, 256, 274, 275 };
+    int expected_angle[] = { 120, 109,  82,  56,  45,  45 };
 
     TestAnimate(kServoRightFrontKnee, test_ms, expected_angle,
                 sizeof(test_ms) / sizeof(test_ms[0]));
@@ -208,13 +222,13 @@ TEST_F(ServoAnimatorTest, AnimationCalibrationPoseBalances) {
 }
 
 TEST_F(ServoAnimatorTest, ExtentsAreRespected) {
-  settings_.servo_lower_extents[kServoNeck] = -50;
+  settings_.servo_lower_extents[kServoHead] = -30;
   settings_.servo_upper_extents[kServoLeftFrontShoulder] = 40;
   animator_.Attach();
 
   int actual_rest_positions[kServoCount];
   memcpy(actual_rest_positions, rest_positions_, sizeof(actual_rest_positions));
-  actual_rest_positions[kServoNeck] = 140;
+  actual_rest_positions[kServoHead] = 60;
   actual_rest_positions[kServoLeftFrontShoulder] = 130;
 
   for (int i = 0; i < kServoCount; ++i) {
