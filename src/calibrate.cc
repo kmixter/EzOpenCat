@@ -28,7 +28,7 @@ static const char* kServosNames[] = {
   "Right Back Knee",
   "Left Back Knee",
   nullptr
-   };
+};
 
 static const char kKeyUp = -1;
 static const char kKeyDown = -2;

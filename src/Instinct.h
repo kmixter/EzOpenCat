@@ -663,7 +663,7 @@ const char fistbump[] PROGMEM = {
 #if 0
   const char* progmemPointer[] = {bd, bk, bkL, bkR, cr, crL, crR, ly, stair, tr, trL, trR, vt, wkF, wkL, wkR, balance, buttUp, calib, cd1, cd2, dropped, lifted, pee, pee1, pu1, pu2, rc1, rc10, rc2, rc3, rc4, rc5, rc6, rc7, rc8, rc9, rest, sit, sleep, str, zero, };
 #else
-  const char* progmemPointer[] = {00, bk, bkL, bkR, cr, 000, 000, 00, 00000, tr, trL, trR, 00, wkF, wkL, wkR, balance, 000000, calib, 000, 000, 0000000, 000000, 000, 0000, 000, 000, 000, 0000, 000, 000, 000, 000, 000, 000, 000, 000, rest, sit, sleep, str, 0000, fistbump};
+  const char* progmemPointer[] = {00, bk, bkL, bkR, cr, 000, 000, 00, 00000, tr, trL, trR, vt, wkF, wkL, wkR, balance, 000000, calib, 000, 000, 0000000, 000000, 000, 0000, 000, 000, 000, 0000, 000, 000, 000, 000, 000, 000, 000, 000, rest, sit, sleep, str, 0000, fistbump};
 #endif
 
 #else	//only need to know the pointers to newbilities, because the intuitions have been saved onto external EEPROM,

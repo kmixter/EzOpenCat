@@ -52,6 +52,7 @@ const int kAnimationCrawlRight = 6;
 const int kAnimationTr = 9;
 const int kAnimationTrLeft = 10;
 const int kAnimationTrRight = 11;
+const int kAnimationWalkPlace = 12;
 const int kAnimationSingleFrame = -1;
 const int kAnimationFistBump = 42;
 
@@ -77,7 +78,7 @@ class ServoAnimator {
   ServoAnimator() {}
 
   void Initialize();
-  void StartAnimation(int animation, unsigned long millis_now);
+  virtual void StartAnimation(int animation, unsigned long millis_now);
   void WaitUntilDone() const;
   void Rest();
   void Attach();
@@ -88,13 +89,14 @@ class ServoAnimator {
   void Animate(unsigned long millis_now);
   bool animating() const { return animating_; }
   void set_ms_per_degree(int ms) { ms_per_degree_ = ms; }
+  int ms_per_degree() const { return ms_per_degree_; }
   int animation_sequence() const { return animation_sequence_; }
   int animation_sequence_frame_number() const {
     return animation_sequence_frame_number_;
   }
   void HandlePitchRoll(int pitch, int roll, unsigned long millis_now);
 
- private:
+ protected:
   void ResetAnimation();
   void SetFrame(const int8_t* servo_values, unsigned long millis_now);
   void StartNextAnimationFrame(unsigned long millis_now);

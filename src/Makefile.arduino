@@ -7,7 +7,7 @@ PKG=main
 O=out/arduino
 BIN=$(O)/$(PKG)
 COMMONOBJS=$(O)/mpu6050.o $(O)/remote_control.o \
-	 $(O)/servo_animator.o $(O)/eeprom_settings.o \
+	 $(O)/servo_animator.o $(O)/eeprom_settings.o $(O)/auto_mode.o \
     $(O)/third_party/Arduino-IRremote-master/irRecv.o \
     $(O)/third_party/Arduino-IRremote-master/IRremote.o \
     $(O)/third_party/Arduino-IRremote-master/ir_NEC.o
