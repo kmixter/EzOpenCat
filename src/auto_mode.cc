@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #endif  // TESTING
 
+#include "prng.h"
 #include "servo_animator.h"
 
 void AutoMode::SetEnabled(bool enabled) {
@@ -60,7 +61,7 @@ void AutoMode::Update(unsigned long millis_now) {
 
    case Wake:
     animation_speed = 4;
-    next_animation = kAnimationBalance;
+    next_animation = prng_->Roll(2) == 0 ? kAnimationBalance : kAnimationSit;
     next_animation_delay_ = 10000;
     state_ = WalkInPlace;
     break;
@@ -74,7 +75,7 @@ void AutoMode::Update(unsigned long millis_now) {
 
    case WakeToRest:
     animation_speed = 4;
-    next_animation = kAnimationBalance;
+    next_animation = prng_->Roll(2) == 0 ? kAnimationBalance : kAnimationSit;
     next_animation_delay_ = 10000;
     state_ = FallAsleep;
     break;

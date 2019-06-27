@@ -3,17 +3,19 @@
 #include <gtest/gtest.h>
 
 #include "eeprom_settings.h"
+#include "prng.h"
 #include "servo_animator_testfake.h"
 
 class AutoModeTest : public testing::Test {
  protected:
-  AutoModeTest() {}
+  AutoModeTest() : prng_(0) {}
 
   void SetUp() override {
-    auto_mode_.Initialize(&animator_);
+    auto_mode_.Initialize(&animator_, &prng_);
   }
 
   AutoMode auto_mode_;
+  NotAtAllRandom prng_;
   ServoAnimatorTestFake animator_;
 };
 
@@ -52,6 +54,7 @@ TEST_F(AutoModeTest, EnableDisableRestoresSpeed) {
 TEST_F(AutoModeTest, TransitionsFromRestToBalanceToStretch) {
   auto_mode_.SetEnabled(true);
   auto_mode_.Update(1);
+
   ASSERT_TRUE(animator_.animating());
   ASSERT_TRUE(auto_mode_.enabled());
   ASSERT_EQ(kAnimationBalance, animator_.animation_sequence());

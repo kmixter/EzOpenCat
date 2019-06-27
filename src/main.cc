@@ -3,6 +3,7 @@
 #include "auto_mode.h"
 #include "eeprom_settings.h"
 #include "mpu6050.h"
+#include "prng.h"
 #include "remote_control.h"
 #include "servo_animator.h"
 
@@ -17,6 +18,7 @@ static MPU6050 s_mpu(kMpuI2CAddr, kTau / 1000, kDt / 1000);
 #endif  // MPU
 static RemoteControl s_control(A0);
 static AutoMode s_auto;
+static SmallPRNG s_prng(0);
 
 class MyControlObserver : public ControlObserver {
  public:
@@ -164,11 +166,13 @@ int main() {
                                s_eeprom_settings.settings().roll_correction);
 #endif  // MPU
   s_control.Initialize();
-  s_auto.Initialize(&s_servo_animator);
+  s_auto.Initialize(&s_servo_animator, &s_prng);
 
   ResetServos();
 
   Serial.println(F("Ready..."));
+
+  s_prng.SetSeed(micros());
 
   unsigned long last_remote_key = 0;
   const int auto_mode_renter_timeout = 10000;
@@ -176,13 +180,16 @@ int main() {
   s_servo_animator.set_ms_per_degree(manual_mode_ms_per_degree);
 
   s_auto.SetEnabled(true);
-  Serial.println(s_auto.enabled());
 
   while (true) {
     RemoteKey key;
     unsigned long millis_now = millis();
 
     if (s_control_observer.Get(&key)) {
+      if (last_remote_key == 0) {
+        // First key press is our first entropy event. Use it.
+        s_prng.SetSeed(micros());
+      }
       s_auto.SetEnabled(false);
       HandleKey(key, &manual_mode_ms_per_degree);
       last_remote_key = millis_now;
