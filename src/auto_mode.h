@@ -5,12 +5,11 @@ class ServoAnimator;
 class PRNG;
 
 enum AutoModeState {
-  kStateInit,
+  kStateSleeping,
   kStateStretch,
   kStateBalance,
   kStateSit,
   kStateWalkInPlace,
-  kStateSleeping,
   kStateCount
 };
 
@@ -44,7 +43,7 @@ class AutoMode {
   PRNG* prng_ = nullptr;
   int saved_ms_per_degree_ = 0;
   bool enabled_ = false;
-  AutoModeState state_ = kStateInit;
+  AutoModeState state_ = kStateSleeping;
   unsigned long millis_next_state_ = 0;
   StateData* state_data_;
 };

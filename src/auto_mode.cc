@@ -13,41 +13,35 @@
 
 static AutoMode::StateData s_state_data[kStateCount] = {
   {
-    { 0, 50, 20, 20, 10, 0 },
-    0, 0,
+    { 0, 50, 50, 0, 0 },  // StateSleeping
+    20, 4,  // StateSleeping
     10,
-    kAnimationRest,
+    kAnimationRest
   },
   {
-    { 0, 0, 40, 40, 20, 0  },  // StateStretch
+    { 0, 0, 40, 40, 20 },  // StateStretch
     2, 1,
     10,
     kAnimationStretch
   },
   {
-    { 0, 0, 0, 40, 30, 30 },  // StateBalance
+    { 30, 0, 0, 40, 30 },  // StateBalance
     10, 5,  // StateBalance
     4,
     kAnimationBalance,
   },
   {
-    { 0, 0, 60, 0, 10, 30 },  // StateSit
+    { 30, 0, 60, 0, 10 },  // StateSit
     10, 5, // StateSit
     4,
     kAnimationSit,
   },
   {
-    { 0, 0, 30, 40, 0, 30 },  // StateWalkInPlace
+    { 30, 0, 30, 40, 0 },  // StateWalkInPlace
     2, 1,  // StateWalkInPlace
     2,
     kAnimationWalkInPlace,
   },
-  {
-    { 0, 40, 20, 20, 0, 20 },  // StateSleeping
-    20, 4,  // StateSleeping
-    10,
-    kAnimationRest
-  }
 };
 
 void AutoMode::Initialize(ServoAnimator* animator, PRNG* prng) {
