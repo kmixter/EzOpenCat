@@ -12,12 +12,13 @@ class AutoModeTest : public testing::Test {
 
   void SetUp() override {
     auto_mode_.Initialize(&animator_, &prng_);
+    auto_mode_.SetLookAroundEnabled(false);
     prng_.SetSequence(&prng_list_);
   }
 
   AutoMode auto_mode_;
   RandomSequenceFake prng_;
-  std::list<uint32_t> prng_list_ = { 0, 0 };
+  std::list<uint32_t> prng_list_ = { 0, 0, 0, 0 };
   ServoAnimatorTestFake animator_;
 };
 

@@ -174,7 +174,7 @@ int main() {
 
   s_prng.SetSeed(micros());
 
-  unsigned long last_remote_animation_done_time = 0;
+  unsigned long last_manual_animation_done_time = 0;
   bool first_key = true;
   const int auto_mode_reenter_timeout = 10000;
   int manual_mode_ms_per_degree = 4;
@@ -193,18 +193,21 @@ int main() {
         first_key = false;
       }
       s_auto.SetEnabled(false);
+      last_manual_animation_done_time = 0;
       HandleKey(key, &manual_mode_ms_per_degree);
       continue;
     }
 
-    if (!s_auto.enabled() && last_remote_animation_done_time &&
-          millis_now - last_remote_animation_done_time > auto_mode_reenter_timeout) {
+    if (!s_auto.enabled() && last_manual_animation_done_time &&
+          millis_now - last_manual_animation_done_time > auto_mode_reenter_timeout) {
       s_auto.SetEnabled(true);
     }
 
+
     if (!s_auto.enabled()) {
-      if (!last_remote_animation_done_time && !s_servo_animator.animating())
-      last_remote_animation_done_time = millis_now;
+      if (!last_manual_animation_done_time && !s_servo_animator.animating()) {
+        last_manual_animation_done_time = millis_now;
+      }
       yield();
       continue;
     }

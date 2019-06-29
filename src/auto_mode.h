@@ -20,6 +20,7 @@ class AutoMode {
     char seconds_exit_median;
     char seconds_exit_variance;
     char ms_per_degree;
+    bool look_around;
     int animation_sequence;
   };
 
@@ -30,6 +31,9 @@ class AutoMode {
   AutoModeState GetState() const {
     return state_;
   }
+  void SetLookAroundEnabled(bool enabled) {
+    look_around_enabled_ = enabled;
+  }
 
 #ifdef TESTING
   void SetStateData(StateData* data) {
@@ -38,6 +42,7 @@ class AutoMode {
 #endif  // TESTING
 
  private:
+  void LookAround(unsigned long millis_now);
 
   ServoAnimator* servo_animator_ = nullptr;
   PRNG* prng_ = nullptr;
@@ -46,6 +51,9 @@ class AutoMode {
   AutoModeState state_ = kStateSleeping;
   unsigned long millis_next_state_ = 0;
   StateData* state_data_;
+
+  unsigned long millis_next_look_around_ = 0;
+  bool look_around_enabled_ = true;
 };
 
 #endif  // _AUTO_MODE_H

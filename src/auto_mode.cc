@@ -3,10 +3,14 @@
 #ifdef TESTING
 #include <stdio.h>
 #define HDEBUG(_A) _A
+#define DDEBUG(_A)
 #else
 #define HDEBUG(_A)
+#define DDEBUG(_A) _A
 #include <Arduino.h>
 #endif  // TESTING
+
+#include <string.h>
 
 #include "prng.h"
 #include "servo_animator.h"
@@ -16,30 +20,35 @@ static AutoMode::StateData s_state_data[kStateCount] = {
     { 0, 50, 50, 0, 0 },  // StateSleeping
     20, 4,  // StateSleeping
     10,
+    false,
     kAnimationRest
   },
   {
     { 0, 0, 40, 40, 20 },  // StateStretch
     2, 1,
     10,
+    false,
     kAnimationStretch
   },
   {
     { 30, 0, 0, 40, 30 },  // StateBalance
     10, 5,  // StateBalance
     4,
+    true,
     kAnimationBalance,
   },
   {
     { 30, 0, 60, 0, 10 },  // StateSit
     10, 5, // StateSit
     4,
+    true,
     kAnimationSit,
   },
   {
     { 30, 0, 30, 40, 0 },  // StateWalkInPlace
     2, 1,  // StateWalkInPlace
     2,
+    false,
     kAnimationWalkInPlace,
   },
 };
@@ -68,6 +77,27 @@ void AutoMode::SetEnabled(bool enabled) {
   enabled_ = enabled;
 }
 
+void AutoMode::LookAround(unsigned long millis_now) {
+  if (millis_next_look_around_) {
+    if (millis_now < millis_next_look_around_) {
+      return;
+    }
+
+    int8_t new_frame[kServoCount];
+    const int8_t* frame = servo_animator_->GetFrame(
+        state_data_[state_].animation_sequence, 0);
+    memcpy(new_frame, frame, sizeof(new_frame));
+
+    new_frame[kServoHead] = 50 - prng_->Roll(100);
+    new_frame[kServoNeck] = 70 - prng_->Roll(140);
+    servo_animator_->set_ms_per_degree(10);
+    servo_animator_->StartFrame(new_frame, millis_now);
+  }
+  int millis_next = 4000 - prng_->Roll(3500);
+  millis_next_look_around_ = millis_now + millis_next;
+  return;
+}
+
 void AutoMode::Update(unsigned long millis_now) {
   HDEBUG(printf("%d now %lu state %d next %lu\n", __LINE__, millis_now, state_,
                 millis_next_state_));
@@ -75,6 +105,9 @@ void AutoMode::Update(unsigned long millis_now) {
     return;
 
   if (millis_next_state_ && millis_now < millis_next_state_) {
+    if (!servo_animator_->animating() && look_around_enabled_ && 
+          state_data_[state_].look_around)
+      LookAround(millis_now);
     return;
   }
 
@@ -123,4 +156,5 @@ void AutoMode::Update(unsigned long millis_now) {
 #endif  // TESTING
   servo_animator_->set_ms_per_degree(ms_per_degree);
   servo_animator_->StartAnimation(new_animation, millis_now);
+  millis_next_look_around_ = 0;
 }
