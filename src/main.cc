@@ -98,6 +98,9 @@ static void HandleKey(RemoteKey key, int* ms_per_degree) {
     case kKeyEq:
       next_animation = kAnimationStretch;
       break;
+    case kKey0:
+      next_animation = kAnimationRestLaidOut;
+      break;
     case kKey1:
       next_animation = walk_modes[walk_mode][0];
       break;

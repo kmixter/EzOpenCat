@@ -1,6 +1,6 @@
 #define WalkingDOF 8
 #define ActualDOF 11
-#define NUM_SKILLS 43
+#define NUM_SKILLS 44
 //#define I2C_EEPROM
 
 const char bd[] PROGMEM = { 
@@ -656,6 +656,10 @@ const char fistbump[] PROGMEM = {
 -50, -80, -67, 50,  70, -80, -80, 30, -75, 60, 60,
 -20, -80, -67, 50, -70, -80, -80, 30,  75, 60, 60,};
 
+const char restlaidout[] PROGMEM = {
+1, 0, 0,
+  -56, -68, 0, 0, 0, 0, 0, 0, -90, -90, 90, 90, 90, 90, -90, -90,};
+
 #if !defined(MAIN_SKETCH) || !defined(I2C_EEPROM)
 		//if it's not the main sketch to save data or there's no external EEPROM, 
 		//the list should always contain all information.
@@ -663,7 +667,7 @@ const char fistbump[] PROGMEM = {
 #if 0
   const char* progmemPointer[] = {bd, bk, bkL, bkR, cr, crL, crR, ly, stair, tr, trL, trR, vt, wkF, wkL, wkR, balance, buttUp, calib, cd1, cd2, dropped, lifted, pee, pee1, pu1, pu2, rc1, rc10, rc2, rc3, rc4, rc5, rc6, rc7, rc8, rc9, rest, sit, sleep, str, zero, };
 #else
-  const char* progmemPointer[] = {00, bk, bkL, bkR, cr, 000, 000, 00, 00000, tr, trL, trR, vt, wkF, wkL, wkR, balance, 000000, calib, 000, 000, 0000000, 000000, 000, 0000, 000, 000, 000, 0000, 000, 000, 000, 000, 000, 000, 000, 000, rest, sit, sleep, str, 0000, fistbump};
+  const char* progmemPointer[] = {00, bk, bkL, bkR, cr, 000, 000, 00, 00000, tr, trL, trR, vt, wkF, wkL, wkR, balance, 000000, calib, 000, 000, 0000000, 000000, 000, 0000, 000, 000, 000, 0000, 000, 000, 000, 000, 000, 000, 000, 000, rest, sit, sleep, str, 0000, fistbump, restlaidout};
 #endif
 
 #else	//only need to know the pointers to newbilities, because the intuitions have been saved onto external EEPROM,

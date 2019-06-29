@@ -299,7 +299,8 @@ void ServoAnimator::StartNextAnimationFrame(unsigned long millis_now) {
       GetFrame(animation_sequence_, animation_sequence_frame_number_);
   if (next_frame == nullptr) {
     if (animation_sequence_frame_number_ == 1) {
-      if (animation_sequence_ == kAnimationRest) {
+      if (animation_sequence_ == kAnimationRest ||
+          animation_sequence_ == kAnimationRestLaidOut) {
         // TODO: Create an observer interface and use it detach when we
         // observe Rest animation finishing.
         Detach();

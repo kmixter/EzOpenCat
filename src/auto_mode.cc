@@ -16,36 +16,43 @@
 #include "servo_animator.h"
 
 static AutoMode::StateData s_state_data[kStateCount] = {
-  {
-    { 0, 50, 50, 0, 0 },  // StateSleeping
-    20, 4,  // StateSleeping
+  {  // kStateSleeping
+    { 0, 20, 40, 40, 0, 0 },
+    20, 4,
     10,
     false,
     kAnimationRest
   },
-  {
-    { 0, 0, 40, 40, 20 },  // StateStretch
+  {  // kStateSleepingLaidOut
+    { 20, 0, 40, 40, 0, 0 },
+    20, 4,
+    10,
+    false,
+    kAnimationRestLaidOut
+  },
+  {  // kStateStretch
+    { 0, 0, 0, 40, 40, 20 },
     2, 1,
     10,
     false,
     kAnimationStretch
   },
-  {
-    { 30, 0, 0, 40, 30 },  // StateBalance
-    10, 5,  // StateBalance
-    4,
+  {  // kStateBalance
+    { 15, 15, 0, 0, 40, 30 },
+    10, 5,
+    5,
     true,
     kAnimationBalance,
   },
   {
-    { 30, 0, 60, 0, 10 },  // StateSit
+    { 15, 15, 0, 60, 0, 10 },  // StateSit
     10, 5, // StateSit
-    4,
+    5,
     true,
     kAnimationSit,
   },
   {
-    { 30, 0, 30, 40, 0 },  // StateWalkInPlace
+    { 15, 15, 0, 30, 40, 0 },  // StateWalkInPlace
     2, 1,  // StateWalkInPlace
     2,
     false,

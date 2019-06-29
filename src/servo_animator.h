@@ -55,6 +55,7 @@ const int kAnimationTrRight = 11;
 const int kAnimationWalkInPlace = 12;
 const int kAnimationSingleFrame = -1;
 const int kAnimationFistBump = 42;
+const int kAnimationRestLaidOut = 43;
 
 enum ServoIndex {
   kServoHead,

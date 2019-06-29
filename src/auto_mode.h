@@ -6,6 +6,7 @@ class PRNG;
 
 enum AutoModeState {
   kStateSleeping,
+  kStateSleepingLaidOut,
   kStateStretch,
   kStateBalance,
   kStateSit,

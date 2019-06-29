@@ -63,7 +63,7 @@ TEST_F(AutoModeTest, SleepingStateTransitionToStretch) {
 }
 
 TEST_F(AutoModeTest, SleepingStateTransitionToBalance) {
-  prng_list_ = { 50, 0 };
+  prng_list_ = { 60, 0 };
   auto_mode_.SetEnabled(true);
   auto_mode_.Update(1);
   ASSERT_EQ(kStateBalance, auto_mode_.GetState());
@@ -72,7 +72,7 @@ TEST_F(AutoModeTest, SleepingStateTransitionToBalance) {
 TEST_F(AutoModeTest, SequentialTransitions) {
   auto_mode_.SetEnabled(true);
   ASSERT_EQ(kStateSleeping, auto_mode_.GetState());
-  prng_list_ = { 35, 1 };
+  prng_list_ = { 40, 1 };
 
   auto_mode_.Update(0);
 
