@@ -52,7 +52,7 @@ const int kAnimationCrawlRight = 6;
 const int kAnimationTr = 9;
 const int kAnimationTrLeft = 10;
 const int kAnimationTrRight = 11;
-const int kAnimationWalkPlace = 12;
+const int kAnimationWalkInPlace = 12;
 const int kAnimationSingleFrame = -1;
 const int kAnimationFistBump = 42;
 

@@ -27,6 +27,7 @@ class SmallPRNG : public PRNG {
   ranctx context_;
 };
 
+#ifdef TESTING
 class NotAtAllRandom : public PRNG {
  public:
   NotAtAllRandom(uint32_t value) : value_(value) {}
@@ -37,5 +38,26 @@ class NotAtAllRandom : public PRNG {
  private:
   uint32_t value_;
 };
+
+#include <list>
+
+class RandomSequenceFake : public PRNG {
+ public:
+  RandomSequenceFake() {}
+  uint32_t Get() override {
+    if (sequence_->size() == 0) *((int*)nullptr) = 0;
+    uint32_t result = sequence_->front();
+    sequence_->pop_front();
+    return result;
+  }
+
+  void SetSequence(std::list<uint32_t>* sequence) {
+    sequence_ = sequence;
+  }
+
+ private:
+  std::list<uint32_t>* sequence_;
+};
+#endif
 
 #endif  // _PRNG_H

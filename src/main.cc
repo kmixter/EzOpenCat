@@ -108,7 +108,7 @@ static void HandleKey(RemoteKey key, int* ms_per_degree) {
       next_animation = walk_modes[walk_mode][2];
       break;
     case kKey4:
-      next_animation = kAnimationWalkPlace;
+      next_animation = kAnimationWalkInPlace;
       break;
     case kKey5:
       next_animation = kAnimationSit;
@@ -174,8 +174,9 @@ int main() {
 
   s_prng.SetSeed(micros());
 
-  unsigned long last_remote_key = 0;
-  const int auto_mode_renter_timeout = 10000;
+  unsigned long last_remote_animation_done_time = 0;
+  bool first_key = true;
+  const int auto_mode_reenter_timeout = 10000;
   int manual_mode_ms_per_degree = 4;
   s_servo_animator.set_ms_per_degree(manual_mode_ms_per_degree);
 
@@ -186,21 +187,24 @@ int main() {
     unsigned long millis_now = millis();
 
     if (s_control_observer.Get(&key)) {
-      if (last_remote_key == 0) {
+      if (first_key) {
         // First key press is our first entropy event. Use it.
         s_prng.SetSeed(micros());
+        first_key = false;
       }
       s_auto.SetEnabled(false);
       HandleKey(key, &manual_mode_ms_per_degree);
-      last_remote_key = millis_now;
       continue;
     }
 
-    if (!s_auto.enabled() && millis_now - last_remote_key > auto_mode_renter_timeout) {
+    if (!s_auto.enabled() && last_remote_animation_done_time &&
+          millis_now - last_remote_animation_done_time > auto_mode_reenter_timeout) {
       s_auto.SetEnabled(true);
     }
 
     if (!s_auto.enabled()) {
+      if (!last_remote_animation_done_time && !s_servo_animator.animating())
+      last_remote_animation_done_time = millis_now;
       yield();
       continue;
     }

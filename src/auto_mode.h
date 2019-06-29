@@ -4,32 +4,49 @@
 class ServoAnimator;
 class PRNG;
 
+enum AutoModeState {
+  kStateInit,
+  kStateStretch,
+  kStateBalance,
+  kStateSit,
+  kStateWalkInPlace,
+  kStateSleeping,
+  kStateCount
+};
+
 class AutoMode {
  public:
-  void Initialize(ServoAnimator* animator, PRNG* prng) {
-    servo_animator_ = animator;
-    prng_ = prng;
-  }
+  struct StateData {
+    char next_state_prob[kStateCount];
+    char seconds_exit_median;
+    char seconds_exit_variance;
+    char ms_per_degree;
+    int animation_sequence;
+  };
+
+  void Initialize(ServoAnimator* animator, PRNG* prng);
   void SetEnabled(bool enabled);
   void Update(unsigned long millis);
   bool enabled() const { return enabled_; }
+  AutoModeState GetState() const {
+    return state_;
+  }
+
+#ifdef TESTING
+  void SetStateData(StateData* data) {
+    state_data_ = data;
+  }
+#endif  // TESTING
 
  private:
-  enum State {
-    Init,
-    Stretch,
-    Wake,
-    WalkInPlace,
-    WakeToRest,
-    FallAsleep
-  } state_ = Init;
 
   ServoAnimator* servo_animator_ = nullptr;
   PRNG* prng_ = nullptr;
   int saved_ms_per_degree_ = 0;
   bool enabled_ = false;
-  unsigned long last_animation_time_ = 0;
-  unsigned long next_animation_delay_ = 0;
+  AutoModeState state_ = kStateInit;
+  unsigned long millis_next_state_ = 0;
+  StateData* state_data_;
 };
 
 #endif  // _AUTO_MODE_H
