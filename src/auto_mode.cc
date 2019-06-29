@@ -95,8 +95,10 @@ void AutoMode::LookAround(unsigned long millis_now) {
         state_data_[state_].animation_sequence, 0);
     memcpy(new_frame, frame, sizeof(new_frame));
 
-    new_frame[kServoHead] = 50 - prng_->Roll(100);
-    new_frame[kServoNeck] = 70 - prng_->Roll(140);
+    new_frame[kServoHead] =
+        ServoAnimator::AngleAdd(frame[kServoHead], 50 - prng_->Roll(100));
+    new_frame[kServoNeck] =
+        ServoAnimator::AngleAdd(frame[kServoNeck], 70 - prng_->Roll(140));
     servo_animator_->set_ms_per_degree(10);
     servo_animator_->StartFrame(new_frame, millis_now);
   }

@@ -3,11 +3,15 @@
 #ifndef TESTING
 #include <Arduino.h>
 #define pgm_read_int8(_a) (int8_t)pgm_read_byte(_a)
+#define HDEBUG(_A)
+#define DDEBUG(_A) _A
 #else
 #define PROGMEM
 #define pgm_read_int8(_a) (*(_a))
 #include <cstdlib>
 #include <stdio.h>
+#define HDEBUG(_A) _A
+#define DDEBUG(_A)
 #endif  // TESTING
 
 #include <math.h>

@@ -96,6 +96,7 @@ class ServoAnimator {
     return animation_sequence_frame_number_;
   }
   void HandlePitchRoll(int pitch, int roll, unsigned long millis_now);
+  static int AngleAdd(int a1, int a2);
 
  protected:
   void ResetAnimation();
@@ -105,7 +106,6 @@ class ServoAnimator {
   int ConvertToRealAngle(int servo, int angle);
   void InterpolateToFrame(unsigned long millis_now, bool* done);
   void ComputeBalancedFrame();
-  int AngleAdd(int a1, int a2);
 
   bool animating_ = false;
   unsigned long millis_last_ = 0;
